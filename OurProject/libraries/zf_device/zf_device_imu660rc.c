@@ -696,20 +696,18 @@ uint8 imu660rc_init(imu660rc_quarternion_rate_config quarternion_rate)
         // 如果启用四元数输出，则配置相应数据
         if(IMU660RC_QUARTERNION_DISABLE != quarternion_rate)
         {
-            imu660rc_write_register(IMU660RC_FIFO_CRTL1, 0x01);
-            imu660rc_write_register(IMU660RC_FIFO_CRTL4, 0x06);
             // 设置中断触发信号
             imu660rc_write_register(IMU660RC_INT2_CTRL, 0x80);
             imu660rc_write_register(IMU660RC_CTRL4, 0x08);
+            imu660rc_write_register(IMU660RC_EMB_FUNC_CFG, 0x30);
             
             // 重新配置加速度、角速度输出速率
-            imu660rc_write_register(IMU660RC_CTRL1, 0x10 | (uint8)(quarternion_rate + 3));
-            imu660rc_write_register(IMU660RC_CTRL2, 0x10 | (uint8)(quarternion_rate + 3));
+            imu660rc_write_register(IMU660RC_CTRL1, 0x10 | (quarternion_rate + 3));
+            imu660rc_write_register(IMU660RC_CTRL2, 0x10 | (quarternion_rate + 3));
             
             // 设置四元数输出速率并开启
             imu660rc_set_mem_bank(IMU660RC_EMBED_MEM_BANK);
-            imu660rc_write_register(IMU660RC_EMB_FUNC_FIFO_EN_A, 0x02);
-            imu660rc_write_register(IMU660RC_SFLP_ODR, 0x43 | (uint8)(quarternion_rate << 3));
+            imu660rc_write_register(IMU660RC_SFLP_ODR, 0x43 | (quarternion_rate << 3));
             imu660rc_write_register(IMU660RC_EMB_FUNC_EN_A, 0x02);
             imu660rc_write_register(IMU660RC_PAGE_RW, 0x00);
             imu660rc_set_mem_bank(IMU660RC_MAIN_MEM_BANK);

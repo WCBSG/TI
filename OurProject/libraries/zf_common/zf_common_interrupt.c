@@ -93,16 +93,20 @@ void interrupt_set_priority (irqn_type_enum irqn, uint8 priority)
 			case P5_INI_IRQ: 
 			case P6_INI_IRQ: 
 			case P7_INI_IRQ: 
-                PINIPH = (priority >> 1) ? (PINIPH | (1U << (irqn & 0x0F))) : (PINIPH & ~(1U << (irqn & 0x0F)));
-                PINIPL = (priority & 1U) ? (PINIPL | (1U << (irqn & 0x0F))) : (PINIPL & ~(1U << (irqn & 0x0F)));
+				if(priority / 2){PINIPH |= (0x01 << (irqn & 0x0f));}
+				else{PINIPH &= ~(0x01 << (irqn & 0x0f));}
+				if(priority % 2){PINIPL |= (0x01 << (irqn & 0x0f));}
+				else{PINIPL |= (0x01 << (irqn & 0x0f));}
 				break;
 			case P8_INI_IRQ: //P8到PB共用2个字节控制中断优先级
 			case P9_INI_IRQ: 
 			case PA_INI_IRQ: 
 			case PB_INI_IRQ: 
-                PIN2IPH = (priority >> 1) ? (PIN2IPH | (1U << (irqn & 0x0F))) : (PIN2IPH & ~(1U << (irqn & 0x0F)));
-                PIN2IPL = (priority & 1U) ? (PIN2IPL | (1U << (irqn & 0x0F))) : (PIN2IPL & ~(1U << (irqn & 0x0F)));
-            	break;
+				if(priority / 2){PIN2IPH |= (0x01 << (irqn & 0x0f));}
+				else{PIN2IPH &= ~(0x01 << (irqn & 0x0f));}
+				if(priority % 2){PIN2IPL |= (0x01 << (irqn & 0x0f));}
+				else{PIN2IPL |= (0x01 << (irqn & 0x0f));}
+				break;
 		}
 	}
 }
