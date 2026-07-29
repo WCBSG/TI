@@ -1,0 +1,27 @@
+{
+  "version": 4,
+  "configurations": [
+    {
+      "name": "Keil-ARMCLANG",
+      "compilerPath": "C:/Keil_v5/ARM/ARMCLANG/bin/armclang.exe",
+      "intelliSenseMode": "windows-clang-arm",
+      "cStandard": "c11",
+      "cppStandard": "c++17",
+      "includePath": [
+        "${workspaceFolder}/OurProject/libraries/**",
+        "${workspaceFolder}/OurProject/project/**",
+        "C:/Keil_v5/ARM/ARMCLANG/include"
+      ],
+      "browse": {
+        "path": [
+          "${workspaceFolder}/OurProject/libraries",
+          "${workspaceFolder}/OurProject/project"
+        ],
+        "limitSymbolsToIncludedHeaders": true
+      },
+      "recursiveIncludes": {
+        "priority": "beforeSystemIncludes"
+      }
+    }
+  ]
+}
