@@ -1096,7 +1096,7 @@ void spi_transfer_16bit (spi_index_enum spi_n, const uint16 *write_buffer, uint1
 		if(read_buffer != NULL)
         {
             *read_buffer = SPI_READ_DAT(spi_n, (uint8)((*write_buffer & 0xFF00) >> 8));
-			*read_buffer = *read_buffer << 8 | (uint8)(SPI_READ_DAT(spi_n, (uint8)(*write_buffer & 0x00FF)));
+			*read_buffer = *read_buffer << 8 | (uint8)(SPI_READ_DAT(spi_n, (*write_buffer & 0x00FF)));
 			read_buffer++;
         }
 		else

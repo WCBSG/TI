@@ -847,6 +847,16 @@
               <FileType>1</FileType>
               <FilePath>..\user\main.c</FilePath>
             </File>
+            <File>
+              <FileName>IRPHOTO.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\IRPHOTO.c</FilePath>
+            </File>
+            <File>
+              <FileName>IRPHOTO.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\IRPHOTO.h</FilePath>
+            </File>
           </Files>
         </Group>
       </Groups>

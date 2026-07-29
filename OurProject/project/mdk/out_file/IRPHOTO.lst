@@ -1,0 +1,99 @@
+C251 COMPILER V5.60.0,  IRPHOTO                                                            29/07/26  21:26:32  PAGE 1   
+
+
+C251 COMPILER V5.60.0, COMPILATION OF MODULE IRPHOTO
+OBJECT MODULE PLACED IN .\out_file\IRPHOTO.obj
+COMPILER INVOKED BY: D:\keil5\C251\BIN\C251.EXE IRPHOTO.c LARGE ROM(HUGE) WARNINGLEVEL(3) OPTIMIZE(0,SIZE) BROWSE INCDIR
+                    -(..\..\libraries\zf_common;..\..\libraries\zf_components;..\..\libraries\zf_device;..\..\libraries\zf_driver;..\user;..\
+                    -code;..\..\libraries\zf_components\stc32g_usb_lib;..\..\libraries\zf_components\seekfree_assistant) DEBUG PRINT(.\out_fi
+                    -le\IRPHOTO.lst) OBJECT(.\out_file\IRPHOTO.obj) 
+
+stmt  level    source
+
+    1          #include "IRPHOTO.h"
+    2          
+    3          // static const gpio_pin_enum ir_pins[8] = {
+    4          //     IO_P00, IO_P01, IO_P02, IO_P03,  
+    5          //     IO_P04, IO_P05, IO_P06, IO_P07,
+    6          // };//预设
+    7          
+    8          // void IRPHOTO_Init(void)
+    9          // {
+   10          //     int i;
+   11          //     for (i = 0; i < 8; i++)
+   12          //     {
+   13          //          gpio_init(ir_pins[i], GPI, 0, GPI_PULL_UP);  
+   14          //     }
+   15          // }
+   16          
+   17          
+   18          int calc_error(int s[8])//八路光电管循迹
+   19          {
+   20   1          int error = 0;
+   21   1          int last_error = 0;
+   22   1          int weight[8] = { -7, -5, -3, -1, 1, 3, 5, 7 };
+   23   1          int i;
+   24   1          for (i = 0; i < 8; i++)
+   25   1          {
+   26   2              if (s[i] == 1)
+   27   2              {
+   28   3                  error += weight[i]; 
+   29   3              }
+   30   2          } 
+   31   1          return error;
+   32   1      }
+   33          
+   34          int is_stop(int s[8])//停止标志。连续三个光电管为黑色时，返回1，否则返回0
+   35          {
+   36   1          int i;
+   37   1          int count = 0;
+   38   1          for (i = 0; i < 8; i++)
+   39   1          {
+   40   2              if (s[i] == 1)
+   41   2              {
+   42   3                  count++;
+   43   3                  if (count >= 3 )//停止标志
+   44   3                  {
+   45   4                      return 1;
+   46   4                  }
+   47   3      
+   48   3              }
+   49   2              else
+   50   2              {
+   51   3              count = 0; // 重置计数器
+   52   3              }
+   53   2          }
+   54   1          if (count == 0)
+   55   1              return 1; // 出界保护
+   56   1      
+C251 COMPILER V5.60.0,  IRPHOTO                                                            29/07/26  21:26:32  PAGE 2   
+
+   57   1          return 0; // 没有停止标志
+   58   1      }
+   59          
+   60          
+   61              
+
+
+Module Information          Static   Overlayable
+------------------------------------------------
+  code size            =    ------     ------
+  ecode size           =       311     ------
+  data size            =    ------     ------
+  idata size           =    ------     ------
+  pdata size           =    ------     ------
+  xdata size           =        34     ------
+  xdata-const size     =    ------     ------
+  edata size           =    ------     ------
+  bit size             =    ------     ------
+  ebit size            =    ------     ------
+  bitaddressable size  =    ------     ------
+  ebitaddressable size =    ------     ------
+  far data size        =    ------     ------
+  huge data size       =    ------     ------
+  const size           =    ------     ------
+  hconst size          =        16     ------
+End of Module Information.
+
+
+C251 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
