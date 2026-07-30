@@ -2,12 +2,12 @@
 import sensor, time, network, socket
 
 # 配置
-WIFI_SSID = "OMVRT5"
+WIFI_SSID = "OMVRT-WC"
 WIFI_PASSWORD = "12345678"
 HTTP_PORT = 8000
 STREAM_WIDTH = 320
 STREAM_HEIGHT = 240
-JPEG_QUALITY = 30
+JPEG_QUALITY = 45
 BOUNDARY = "frame"
 stream_conn = None
 
@@ -70,6 +70,7 @@ def connect_wifi_ap(ssid, key):
 # ---- 主循环 ----
 def main():
     global stream_conn
+    server = None
     try:
         ip = connect_wifi_ap(WIFI_SSID, WIFI_PASSWORD)
         if not ip: print("[ERROR] WiFi fail"); return
@@ -94,7 +95,8 @@ def main():
                 if stream_conn:
                     try:
                         send_frame(stream_conn, jpg)
-                    except Exception:
+                    except Exception as e:
+                        print("[STREAM] off: %s" % e)
                         _close(stream_conn)
                         stream_conn = None
 
@@ -149,7 +151,7 @@ def main():
         print("[FATAL] %s" % e)
     finally:
         if stream_conn: _close(stream_conn)
-        _close(server)
+        if server: _close(server)
         print("[END]")
 
 if __name__ == "__main__":
