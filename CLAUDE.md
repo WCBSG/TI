@@ -6,37 +6,155 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概述
 
-竞赛小车项目（H题 — 车载平衡滚球运动控制系统），**双摄像头 + STC32G144K246（主控）** 三芯片架构：
+竞赛小车项目（H题 — 车载平衡滚球运动控制系统），**OpenART Plus（视觉识别）+ OMV-RT5（WiFi 图传）+ STC32G144K246（主控）** 三芯片架构：
 
 ### 题目要点
 
-- **摆杆**：4 根 PPR 水管（绿色 + 白色，外径 2cm，长 25cm）组成十字形轨道，钢球在管内滚动
-- **赛道**：白色边线（宽 1.8±0.2cm）环形跑道，AB/CD 直道各 1.5m，BC/DA 半圆弧半径 0.5m
-- **小球**：直径约 1cm 钢球，不可涂色
-- **摄像头**：固定于车体，从上方拍摄摆杆区域 → 实时显示摆杆角度 + 钢球位置，并录像
-- **小车**：长宽 ≤35×25cm，电赛专用车模，电池供电
+- **摆杆**：**PPR 水管对半切开**（剖面 = 半圆弧形凹槽，绿色或白色，外径 2cm，长 25cm），**左端**用铰链/合页固定在车体平板上方（**h≥5cm**），钢球在半圆弧凹槽内滚动
+- **赛道**：环形跑道，外边线圆弧半径 50cm，两侧白色边线（宽 1.8cm）。**小车巡线的黑线就是 AB/BC/CD/DA 四段首尾相接形成的封闭路径**：A→B 直线段（1.5m）、B→C 半圆弧（半径 0.5m）、C→D 直线段（1.5m）、D→A 半圆弧（半径 0.5m）；BC + DA 合起来是一个整圆
+- **标记点**：
+  - **A/B/C/D** 是**黑线（巡迹路径）**上的点（**和小车相关**）：A 在边线上，B 在 AB 直线段末端，C 在 BC 半圆弧末端（= CD 起点），D 在 CD 直线段末端；具体位置见图 2 赛道示意图
+  - **O 点** 是**摆杆水管**的中点（**和钢球相关**），是球的初始/参考位置
+- **小球**：直径约 1cm 钢球，**球表面不允许喷涂任何颜色**
+- **摄像头（PDF 允许固定在摆杆凹槽上方或车体顶部；本项目设计：相对车身固定，不装摆杆上）**：
+  - **设计理由**：相对车身固定 → **排除摆杆倾斜对识别的影响**（否则摆杆一动摄像头跟着动，钢球坐标会混入摆杆抖动），简化识别
+  - **OpenART Plus（识别端）**：固定在**车体上**（**不装摆杆**），**俯视**拍摄摆杆区域，**只负责色块识别/TFLite 检测钢球位置**，通过 UART 发送给 STC32（**不负责实时显示与录像**）
+  - **OMV-RT5（图传 + 显示 + 录像端，对应 PDF 任务 1）**：稳固安装在小车上作为**发送模块**，AP MJPEG 推流；接收模块（手机/PC）连显示存储装置置环形线路外，**实时显示钢球在凹槽中滚动画面 + 完整记录每次测试视频 + 按要求回放**（6 分）
+- **按键 + 显示装置**：小车必须有**启动按键** + **≤2 英寸显示屏**，按键启动时计时系统开始计时并显示时间
+- **小车**：长宽 ≤35cm × 25cm，电赛专用车模，电池供电
+- **摆杆角度控制机构**（PDF 图 2 关键部件，官方名称）：摆杆**左端用铰链/合页固定**在车体平板上方（被动铰接），**右端连接摆杆角度控制机构**驱动以改变摆杆倾角；倾角大小决定钢球在凹槽内的加速度方向和大小（重力驱动）
 
-### 任务要求
+### 任务要求（按 PDF 原文，8 项顺序一致）
 
 | 序号 | 任务 | 时间限制 | 精度 | 分值 |
 |------|------|----------|------|------|
-| 1 | 基本要求（设计报告等） | — | — | 20 |
-| 2 | 从 A 点出发，顺时针一圈，停在 A | ≤20s | ±2cm | 16 |
-| 3 | 静止时球稳定在中心 O ±5cm 内 | ≤5s | ±1cm | 13 |
-| 4 | A→B 行驶，球稳定在中心 | ≤8s | ±1cm | 20 |
-| 5 | 顺时针一圈，球稳定在中心 | ≤30s | ±1cm | 20 |
-| 6 | 顺时针一圈，球稳定在指定位置 | ≤30s | ±1cm | 20 |
-| 7 | 其他加分项 | — | — | 5 |
+| **1** | **安装摆球位置监测图传装置**：发送模块稳固装车上，接收模块连显示存储装置置环形线路外；实时显示钢球在凹槽中滚动画面 + 完整记录每次测试视频且能按要求回放 | — | 实时显示+录像+回放 | **6** |
+| **2** | 小车置于 A 点，按键启动后沿黑线顺时针行驶一圈并**停到 A 点**；计时停止并显示行驶总时间 | ≤20s | 停车偏差 ≤2cm | **16** |
+| **3** | **小车静止**，摆杆控制装置控制小球从 O 往 +5cm 运行，到达后折返到 -5cm 并稳定在该点附近 | ≤5s | ±5cm 处误差 ≤1cm | **13** |
+| **4** | 小车置于 A 点，钢球置于中心点 O；按键启动后沿黑线顺时针行驶并**通过 B 位置** | AB 间 ≤8s | 行驶中球稳 O，误差 ≤1cm | **20** |
+| **5** | 小车置于 A 点，钢球置于中心点 O；按键启动后沿黑线顺时针行驶一圈并**通过 A 位置** | 整圈 ≤30s | 行驶中球稳 O，误差 ≤1cm | **20** |
+| **6** | 小车置于 A 点，**钢球置于摆杆任意指定位置**；按键启动后沿黑线顺时针行驶一圈并**通过 A 位置** | 整圈 ≤30s | 行驶中球稳任意指定位置，误差 ≤1cm | **20** |
+| **7** | 其他 | — | — | **5** |
+| **8** | 设计报告 | — | — | **20** |
+
+**总分**：6 + 16 + 13 + 20 + 20 + 20 + 5 + 20 = **120 分**
+
+### 摆杆角度控制机构（关键部件，PDF 官方名称）
+
+根据 PDF 图 2，摆杆角度控制机构是控制摆杆倾角、进而控制钢球在凹槽内滚动的核心执行部件：
+
+| 部件 | 位置 | 作用 |
+|------|------|------|
+| **合页/铰链（被动铰接）** | **摆杆左端** | 把摆杆左端固定在车体平板上方（**h≥5cm**），允许该端转动但不移动 |
+| **摆杆角度控制装置（主动驱动）** | **摆杆右端** | 推杆伸缩 → 推动摆杆右端上下 → 摆杆绕合页轴倾斜 |
+| **摆杆本体** | 中间 | 一根 PPR 水管**对半切开**（剖面 = 半圆弧形凹槽，25cm 长），钢球在凹槽内沿倾斜方向滚动 |
+
+**控制原理**：
+
+```
+角度控制装置推杆伸出 → 摆杆右端抬高 → 摆杆绕左端合页轴倾斜 → 钢球在重力作用下向低侧（左/右）滚动
+角度控制装置推杆缩回 → 摆杆右端降低 → 摆杆反向倾斜 → 钢球反向滚动
+角度控制装置保持 → 摆杆水平 → 钢球保持当前位置（无加速度）
+```
+
+**STC32 驱动**：通过电机/PWM 控制角度控制装置的伸缩量（**开环，无编码器反馈**）→ 间接控制摆杆倾角 → 钢球位置由摄像头反馈闭环
+
+> **注意**：摆杆倾斜角度是系统的**唯一控制量**——钢球既不会自己动，也不会被推，只能靠摆杆倾斜产生的重力分量驱动滚动。所有"球从 O 到 B/P"、"球稳定在 O"等任务，最终都落到"控制摆杆倾角随时间变化"这一个执行动作上。
+
+### 详细规则（按 PDF 二、要求 7 条）
+
+#### 1. 赛道场地
+
+- 用**白色广告布喷绘**制成，环形线路为**黑线**
+- 黑线**线宽 1.8±0.2cm**
+- AB、CD 段各长 **1.5m**
+- BC、DA 段半径 **0.5m** 半圆弧
+- 整体幅面满足小车行驶；测试中**允许自带场地**
+
+#### 2. 停车点 A
+
+- A 点有**长度 5cm、线宽 1.8±0.2cm** 的与环路**垂直居中黑色启停线**
+- 启停线沿中心轴线绘制**宽 0.1cm、长 30cm 的停车基准虚线**，便于判断停车位置
+
+#### 3. 小车规格
+
+- 车身尺寸**长宽 ≤35cm × 25cm**
+- **轮式驱动**，**车载电池供电**
+- 中心轴线上指定**唯一测试位置**（用于判断到达和起始位置偏差）
+- **整个摆杆不超出车身**
+
+#### 4. 行驶过程约束
+
+- **不得人为干涉、遥控**小车运动
+- 行驶中小车**投影必须在轨迹线**上
+- 投影完全脱离轨迹线 → 此次测试**失败**
+- **停车偏差** = 小车上指定测试位置与基准线（点）的绝对距离
+
+#### 5. 循迹模块 + 显示装置
+
+- 循迹**只能使用红外光电模块**，**数量不限**
+- 必须有**启动按键** + **显示装置**
+- 按键启动时**计时系统开始计时并显示时间**
+- 显示屏尺寸**≤2 英寸**，安装在方便观测位置
+
+#### 6. 图传装置（任务 1）
+
+- 发送模块**稳固安装于车体**
+- **摄像头可固定在摆杆凹槽上方**（PDF 允许）；**本项目设计：摄像头相对车身固定，不装摆杆上**，目的是排除摆杆倾斜对识别的影响
+- 回传画面**覆盖整个摆杆**，能完整清晰看到钢球滚动轨迹并判定位置
+- 接收模块 + 显示存储装置（PAD/笔记本电脑等）比赛结束后**与作品一起封存**
+
+#### 7. 摆杆结构（PDF 图 3）
+
+- 由 **25cm PPR 水管（4 分，外径 2cm × 壁厚 0.34cm）** 对半切开改造
+- 槽内放**直径约 1cm 钢球**
+- **整个摆杆平直**，**凹槽内壁表面光滑保持原状**（钢球可灵活滚动）
+- 内壁有凹坑或做增摩擦改造 → **不予测试**
+- 凹槽剖面**边沿**贴**刻度线**（**不允许贴凹槽内**），**刻度间距 0.1cm**
+- **凹槽内钢球位置必须用摄像头检测**
+- 截面：**外圆弧半径 ≈1cm，内圆弧半径 ≈0.65cm**
+
+### 评分参考案例
+
+#### 案例：BC 段球不稳 + 停车偏差 5cm（任务 2/4/5）
+
+**场景**：
+
+```
+车 A 发车 → 球稳在 O 通过 A 点 → AB 段球稳 → BC 段小球不稳 → ...
+→ 停车在 A 点前 5cm（停车偏差 = 5cm）
+```
+
+**逐项评分**（满分 16 + 20 + 20 = 56）：
+
+| 任务 | 要求 | 实际 | 严格评分 | 较宽松评分 |
+|------|------|------|---------|-----------|
+| **任务 2** 一圈停车 | ≤20s + 停车偏差 ≤2cm | 偏差 5cm ❌ | **0** | ~8（完成一圈部分分） |
+| **任务 4** A→B 通过 | AB 间 ≤8s + AB 段球稳 O | AB 段球稳 ✅ | **20** | 20 |
+| **任务 5** 一圈 + 球稳 O | 整圈 ≤30s + **全程**球稳 O | BC 段不稳 ❌ | **0** | ~4~8（完成一圈部分分） |
+| **小计** | — | — | **20** | **32~36** |
+
+**关键认知**（避免新人/AI 误读）：
+
+1. **"行驶过程中"= 全程**，不只是终点对就行 — BC 段一个不稳就毁掉任务 5
+2. **任务 4 只考 AB 段**，BC 段翻车**不影响**任务 4 得分（任务颗粒度关键）
+3. **停车偏差** 与 **球稳** 是**两个独立扣分项**，可同时不达标
+4. **电赛惯例**：核心要求（精度/时间/球稳）不达标 → 该项 0 分，无部分得分（除非评委会酌情）
+
+**实战意义**：
+
+- 调试优先级：**球稳 > 时间 > 停车偏差**（球稳一旦失分，36 分瞬间蒸发）
+- BC/DA 圆弧段单独调一组 PID 参数（过弯减速）
 
 ### 芯片分工
 
 | 芯片 | 职责 |
 |------|------|
-| **OMV-RT5 (RT1062)** | 第一视角 WiFi MJPEG 图传，AP 热点供操作手查看（安装朝向赛道前方） |
-| **OpenART Plus (RT117x)** | 从上方拍摄摆杆：色块识别水管（绿/白）得摆杆角度 + TFLite/色块检测钢球位置 |
-| **STC32G144K246 (C251)** | 主控：接收检测结果 → PID 控制 → 电机/舵机输出；USB-CDC 调试 |
+| **OMV-RT5 (RT1062)** | WiFi AP MJPEG 图传，AP 热点供操作手查看（**仅图传，不参与识别**） |
+| **OpenART Plus (RT117x)** | 负责所有视觉识别：从上方俯视拍摄摆杆区域，**色块识别/TFLite 检测钢球位置**，UART 输出给 STC32（**不负责显示/录像，那是 OMV-RT5 的活**） |
+| **STC32G144K246 (C251)** | 主控：通过 UART 接收 OpenART Plus 检测结果 → PID 控制 → 电机/舵机输出；USB-CDC 调试 |
 
-> **钢球不可涂色** → 需模型或灰度检测。**水管为绿色+白色** → `find_blobs` 色块识别即可跟踪摆杆角度，比 TFLite 快一个数量级。
+> **钢球不可涂色** → 需模型或灰度检测。**摄像头俯视**，色块识别/`find_blobs` 在摆杆 ROI 内识别钢球（球在水管背景上为暗色圆形，对比度高），比 TFLite 快一个数量级。**摆杆角度没有反馈**——伸缩装置无编码器，是开环控制（给多少就是多少），STC32 通过 PID 输出伸缩指令控制钢球位置。
 
 ## 目录结构
 
@@ -52,47 +170,46 @@ OpenART Plus/          ← 识别端 MicroPython 代码（OpenMV IDE 开发）
   stubs/               ← Python 类型存根（sensor/image/machine/time/cmm）
   [例程]OpenART Plus例程/  ← 官方例程（AI模型/apriltag/基础外设/外置外设）
 
-STC32G144K246_100Pin_Library/  ← STC32 官方开源库（只读参考，勿修改）
-  Seekfree_STC32G144K_100Pin_Opensource_Library/
-    libraries/
-      zf_common/       ← 公共模块（时钟/FIFO/调试/中断/字体/typedef）
-      zf_driver/       ← 底层驱动（GPIO/UART/PWM/SPI/ADC/Timer/Encoder/PIT/USB-CDC）
-      zf_device/       ← 器件驱动（IMU/IPS屏幕/TFT/摄像头/无线模块/蓝牙）
-      zf_components/   ← 中间件（USB协议栈/逐飞助手协议）
-    project/           ← 工程模板
-      user/main.c      ← 空白模板入口
-      mdk/seekfree.uvproj  ← MDK for C251 工程文件
-    Example/Coreboard_Demo/  ← 外设例程（E01~E13）
-
-OurProject/         ← 当前 STC32 工程（在此开发）
+OurProject/         ← 当前 STC32 工程（在此开发，why-456 维护）
   libraries/           ← 库文件（从 STC32 库复制）
   project/
     code/              ← 用户外设驱动代码
     mdk/               ← MDK 工程文件
     user/              ← main.c / isr.c / isr.h
 
+docs/                 ← 项目文档
+  stc32/
+    README.md           ← STC32 系统总览（硬件资源/引脚分配/参考资料）
+    八路红外循迹.md       ← 八路红外循迹模块详解（原理/算法/校准/排错）
+
 _archive/              ← 存档（M0项目/K230项目/模型项目）
 ```
 
-## 双摄像头 + 主控架构
+## 系统架构
 
 ```
-[OMV-RT5 (RT1062)]                      [OpenART Plus (RT117x)]
-  朝前拍摄：第一视角图传                      从上方拍摄摆杆区域
-  WiFi AP MJPEG                           色块识别水管(绿/白) → 摆杆角度
-  http://192.168.4.1:8000/                TFLite/灰度检测 → 钢球位置
-       │                                         │
-       │ WiFi (操作手手机/PC 查看)                 │ UART (115200bps)
-       ↓                                         ↓
-    [操作手]                            [STC32G144K246 (C251 @ 96MHz)]
-                                          接收：摆杆角度 + 球坐标
-                                          PID 控制 → 电机/舵机
-                                          USB-CDC → PC 串口调试
+[OMV-RT5 (RT1062)]      [OpenART Plus (RT117x)]     [8路红外循迹]
+  WiFi AP MJPEG 图传      色块/TFLite 球       IRPHOTO
+  AP → 手机/PC查看         UART12 → STC32                  直连 GPIO
+       │                          │                          │
+       │ WiFi（操作手查看）        │ UART（检测结果）         │ GPIO(加权求error)
+       ↓                          ↓                          ↓
+    [操作手]              ┌─────────────────────────────────┐
+                           │  STC32G144K246 (C251 @ 96MHz)  │
+                           │                                │
+                           │  IRPHOTO.c: 加权算偏差+停车检测 │
+                           │  control.c: 差速转向            │
+                           │  Motor.c + PID.c: 编码器闭环    │
+                           │  WiFi SPI: 逐飞助手协议调试     │
+                           └─────────────────────────────────┘
 ```
 
-- **OMV-RT5**：独立 WiFi AP，仅图传，不与 STC32 通信
-- **OpenART Plus**：从上方垂直拍摄摆杆 → 色块识别水管姿态 + 检测钢球 → UART 发送给 STC32
-- **STC32**：接收角度+球坐标 → 平衡/巡线控制算法 → 执行器输出
+- **OMV-RT5**：WiFi AP MJPEG 图传（不参与检测，仅供操作手查看）
+- **OpenART Plus**：负责识别——色块识别/TFLite 检测钢球位置（俯视）
+- **IRPHOTO**：8 路红外光电管，加权求和计算巡线偏差 + 停车标志检测
+- **STC32**：通过 UART 接收 OpenART Plus 检测结果 → 控制 → 输出，WiFi SPI 发送调试数据到逐飞助手
+
+> **注意**：OMV-RT5 仅图传，不参与识别；OpenART Plus 负责所有视觉识别。
 
 ## 开发环境
 
@@ -107,68 +224,147 @@ _archive/              ← 存档（M0项目/K230项目/模型项目）
 - **STC32 下载**：按住 P32 引脚上电进入 USB 下载模式（无需专用下载器）
 - **STC32 头文件路径**：限定在 `OurProject/libraries` 与 `OurProject/project` 内，避免多副本同名文件导致跳转歧义
 
+> **STC32 维护者：why-456**。当前代码已实现 MT9V03x 直连、OTSU 钢球检测、八路红外循迹、编码器 PID 闭环、WiFi SPI 调试。
+
 ## STC32 编程约定
 
-### 入口模板
+### 模块总览
+
+| 文件 | 功能 | 说明 |
+|------|------|------|
+| `main.c` | 主程序 | WiFi SPI → 摄像头初始化 → 逐飞助手 → 循环采集检测发送 |
+| `camera.c/h` | 灰度摄像头 | MT9V03x DMA 采集、裁切、**OTSU 二值化找钢球**（高亮中心+暗环） |
+| `IRPHOTO.c/h` | 八路红外循迹 | 8 路 GPIO 输入，加权求和算偏差，停车标志检测 |
+| `Motor.c/h` | 电机+编码器 | PWM 驱动 + 编码器读取，PIT 定时器触发 PID 更新 |
+| `PID.c/h` | PID 控制器 | 增量式 PID，双电机速度闭环 + 舵机差速转向 |
+| `control.c/h` | 转向控制 | 差速转向（根据偏差调节左右轮目标速度） |
+| `isr.c/h` | 中断服务 | GPIO/UART/DMA/Timer 中断向量表，摄像头 VSYNC+DMA 回调 |
+
+### 八路红外循迹 (IRPHOTO)
 
 ```c
-#include "zf_common_headfile.h"  // 包含所有库头文件
+// 8 路红外传感器读取，返回加权偏差
+int calc_error(int s[8]);  // s[i]=1 表示检测到黑线
+// 权重: {-7, -5, -3, -1, 1, 3, 5, 7}，偏差=Σ(s[i]*weight[i])
+// 正值偏右，负值偏左，0 居中
 
+// 停车标志检测
+int is_stop(int s[8]);  // ≥3 个连续传感器检测到黑线 → 返回 1（停车）
+                        // 全部未检测到（冲出赛道保护）→ 返回 1
+```
+
+### 灰度摄像头 (camera.c)
+
+```c
+#define CROP_MAX_ROWS  20   // 裁切行数（ROI 区域）
+#define CROP_MAX_COLS  188  // 裁切列数
+
+uint8 camera_copy[120][188];          // DMA 采集的完整帧
+uint8 camera_crop[CROP_MAX_ROWS][CROP_MAX_COLS]; // 裁切后 ROI
+
+void camera_copy_image(void);  // 等 mt9v03x_finish_flag 后拷贝到 camera_copy
+void camera_crop_image(row_start, rows, col_start, cols); // 裁切 ROI
+
+// OTSU 大津法自适应阈值 → 找最亮点（高光中心）→ 8 方向采样暗环验证
+// 返回 1=找到，*x=列坐标，*y=行坐标
+uint8 find_ball(uint8 *x, uint8 *y);
+```
+
+OTSU 钢球检测原理：钢球在灰度图像中呈现「中心高亮 + 环形暗区」特征：
+1. 大津法计算整帧自适应阈值
+2. 找最亮点（>150 灰度），8 方向采样（半径 4px）
+3. ≥5 个方向低于阈值 → 确认是钢球
+
+### 电机 + PID (Motor.c + PID.c)
+
+```c
+// ---- 硬件引脚 ----
+// 电机1: DIR=IO_P74, PWM=PWMB_CH2_P75, 编码器=PWMA P60/P62
+// 电机2: DIR=IO_P76, PWM=PWMB_CH4_P77, 编码器=PWMC P40/P42
+
+// ---- PID 结构体 ----
+typedef struct {
+    int16 Target, Actual, Out;
+    int16 Kp, Ki, Kd;
+    int16 Error0, Error1, Error2;
+    int16 OutMax, OutMin;
+} PID_t;
+
+void Motor_Init(void);          // PWM 17kHz, GPIO 方向引脚
+void encoder_init(void);        // 编码器正交解码初始化
+void motor1_control(int16 d);   // 正转/反转 + PWM 占空比
+void motor2_control(int16 d);
+void PID_Update(PID_t *p);      // 增量式 PID 更新
+
+// PIT 定时器中断回调 (pit_handler):
+//   读编码器计数 → 清零 → 作为 PID.Actual → PID_Update → 输出到电机
+```
+
+### 转向控制 (control.c)
+
+```c
+void steer_init(void);  // 初始化转向 PID (Kp=5, OutMax=±20)
+void steer_set(int error, int base_speed);
+// error = 红外循迹偏差，base_speed = 基础速度
+// 左轮目标 = base_speed - steer_pid.Out
+// 右轮目标 = base_speed + steer_pid.Out
+```
+
+### main.c 启动流程
+
+```c
 void main(void) {
-    clock_init(SYSTEM_CLOCK_96M);  // 系统时钟初始化（务必保留）
-    debug_init();                   // 调试串口初始化
+    clock_init(SYSTEM_CLOCK_96M);
+    debug_init();
 
-    // 用户外设初始化代码
+    // 1. WiFi SPI 连接
+    wifi_spi_init(WIFI_SSID, WIFI_PASSWORD);
+    wifi_spi_socket_connect("TCP", TARGET_IP, TARGET_PORT, LOCAL_PORT);
+
+    // 2. 摄像头初始化
+    mt9v03x_init();
+
+    // 3. 逐飞助手协议（WiFi 传输调试画面+数据）
+    seekfree_assistant_interface_init(SEEKFREE_ASSISTANT_WIFI_SPI);
+    seekfree_assistant_camera_information_config(
+        SEEKFREE_ASSISTANT_MT9V03X, camera_crop[0], CROP_MAX_COLS, CROP_MAX_ROWS);
+    seekfree_assistant_camera_boundary_config(
+        XY_BOUNDARY, 1, &ball_x, NULL, NULL, &ball_y, NULL, NULL);
 
     while(1) {
-        // 循环执行代码
+        camera_copy_image();                    // 拷贝 DMA 帧
+        camera_crop_image(50, 20, 0, 188);      // 裁切 ROI（行50~69, 全列）
+        find_ball(&ball_x, &ball_y);            // OTSU 找球
+        seekfree_assistant_camera_send();       // 发送到逐飞助手
     }
 }
 ```
 
-### UART 接收（中断+FIFO 模式）
+### 常用库 API
 
-```c
-fifo_struct uart_fifo;
-uint8 rx_buf[64];
-uint8 get_buf[64];
-
-fifo_init(&uart_fifo, FIFO_DATA_8BIT, rx_buf, 64);
-uart_init(UART_5, 115200, UART5_TX_P05, UART5_RX_P04);
-uart_rx_interrupt(UART_5, ZF_ENABLE, uart_rx_handler);  // 中断回调在 isr.c
-
-// 在 while(1) 中轮询 FIFO
-uint32 cnt = fifo_used(&uart_fifo);
-if (cnt) {
-    interrupt_global_disable();
-    fifo_read_buffer(&uart_fifo, get_buf, &cnt, FIFO_READ_AND_CLEAN);
-    interrupt_global_enable();
-    // 处理 get_buf 中的数据
-}
-```
-
-### 常用 API
-
-| 功能 | 函数 |
-|------|------|
-| 时钟 | `clock_init(SYSTEM_CLOCK_96M)` / `SYSTEM_CLOCK_120M` |
-| 延时 | `system_delay_ms(ms)` / `system_delay_us(us)` |
-| GPIO | `gpio_set(pin, level)` / `gpio_get(pin)` |
-| PWM | `pwm_init(pwm_n, freq, duty)` |
-| 编码器 | `encoder_dir_init(...)` / `encoder_quad_init(...)` |
-| 调试输出 | `debug_write_string(...)` (USB-CDC) |
+| 功能 | 函数 | 所属模块 |
+|------|------|----------|
+| 时钟 | `clock_init(SYSTEM_CLOCK_96M)` / `SYSTEM_CLOCK_120M` | zf_common |
+| 延时 | `system_delay_ms(ms)` / `system_delay_us(us)` | zf_driver |
+| GPIO | `gpio_init(pin, mode, level, pull)` / `gpio_set(pin, lv)` / `gpio_get(pin)` | zf_driver |
+| PWM | `pwm_init(ch, freq, duty)` / `pwm_set_duty(ch, duty)` | zf_driver |
+| 编码器 | `encoder_dir_init(enc, pulse_pin, dir_pin)` / `encoder_get_count(enc)` | zf_driver |
+| 摄像头 | `mt9v03x_init()` / `mt9v03x_finish_flag` / `mt9v03x_image[][]` | zf_device |
+| WiFi SPI | `wifi_spi_init(ssid, pwd)` / `wifi_spi_socket_connect(...)` | zf_device |
+| 逐飞助手 | `seekfree_assistant_interface_init(...)` / `seekfree_assistant_camera_send()` | zf_components |
+| 调试输出 | `debug_init()` / `debug_write_string(...)` (USB-CDC) | zf_common |
 
 ## OMV-RT5 编程约定
 
-### WiFi MJPEG 图传
+### WiFi MJPEG 图传（对应 PDF 任务 1）
 
-OMV-RT5 仅负责实时图传，不参与检测：
+OMV-RT5 作为**发送模块**稳固装在车上，仅负责实时图传 + 录像，不参与检测：
 
 - 运行 `main.py`：WiFi AP 模式，单页应用 MJPEG 推流
 - 热点：`OMVRT5` / `12345678`，地址 `http://192.168.4.1:8000/`
 - 分辨率 320×240，JPEG 质量 30
 - 不主动 GC，不显示 FPS，不与 STC32 通信
-- 用户通过手机/PC 浏览器查看小车第一视角画面
+- 接收模块（手机/PC + 显示存储装置）置环形线路外，**实时显示钢球在凹槽中滚动画面** + **完整记录每次测试视频** + **按要求回放**
 
 ### OMV-RT5 引脚 (RT1062)
 
@@ -182,34 +378,13 @@ OMV-RT5 仅负责实时图传，不参与检测：
 
 ## OpenART 编程约定
 
-OpenART Plus 摄像头从车体上方**垂直向下拍摄摆杆区域**，同时运行两类检测：
+OpenART Plus 摄像头从车体上方**俯视**拍摄摆杆区域，**只负责识别钢球位置**：
 
-- **色块识别** → 跟踪摆杆姿态（绿色/白色 PPR 水管）
-- **钢球检测** → 定位摆杆上的钢球位置（TFLite 或灰度色块）
-
-### 色块识别（摆杆水管跟踪）
-
-水管为绿色和白色 PPR 管，颜色鲜明稳定，`find_blobs` 速度快：
-
-```python
-# 绿色水管 LAB 阈值（需实地校准）
-GREEN_THRESHOLD = [(30, 75, -50, -10, 5, 50)]
-# 白色水管 LAB 阈值（需实地校准）
-WHITE_THRESHOLD = [(80, 100, -15, 10, -15, 15)]
-
-blobs = img.find_blobs(GREEN_THRESHOLD + WHITE_THRESHOLD,
-                       pixels_threshold=200, area_threshold=200,
-                       merge=True, margin=10)
-for b in blobs:
-    # b.cx(), b.cy() — 色块中心，可拟合摆杆中心线算出偏转角
-    # b.rotation_deg() — 色块旋转角，直接对应摆杆方向
-```
-
-通过检测到的水管色块位置和角度，可实时计算出摆杆相对于车体坐标系的偏转角和位移。
+> **摆杆角度无反馈**——伸缩装置无编码器，是开环控制；PID 只能靠摄像头给的钢球位置反馈来调整伸缩指令。
 
 ### 钢球检测
 
-钢球（直径 ~1cm）在水管凹槽内滚动，不可涂色。两种可选方案：
+钢球（直径 ~1cm）在水管内滚动，不可涂色。两种可选方案：
 
 | 方案 | 方法 | 优点 | 缺点 |
 |------|------|------|------|
@@ -219,19 +394,31 @@ for b in blobs:
 - TFLite 模型: `_合并-2tflite.tflite` (YOLOv3 MobileNetV2, INT8, 112×112, 含 NMS)
 - 灰度方案：球在白色/绿色水管背景上为暗色圆形，ROI 限制在摆杆区域后 `find_blobs` 灰度阈值即可检出
 
-> 推荐在摆杆色块定位后，**在摆杆 ROI 区域内做灰度色块检测钢球**，兼顾速度和精度。
+```python
+# 俯视，钢球在水管背景上呈暗色圆形
+# 灰度阈值（球比水管暗，需实地校准）
+BALL_GRAY_THRESHOLD = [(0, 60)]   # 灰度 < 60 视为球像素
+
+# ROI 限制在摆杆区域，避免背景干扰
+roi = (x, y, w, h)  # 摆杆 ROI 矩形
+
+blobs = img.find_blobs(BALL_GRAY_THRESHOLD, roi=roi,
+                       pixels_threshold=50, area_threshold=20)
+for b in blobs:
+    ball_x = b.cx()
+    ball_y = b.cy()  # 在水管上 = 球相对 O 点的位置（cm）
+```
 
 ### UART 输出格式
 
-OpenART 通过 UART12 发送检测结果给 STC32（115200bps）：
+OpenART 通过 UART12 发送钢球位置给 STC32（115200bps）：
 
 ```
-A,angle\n                 ← 摆杆偏转角 (度，相对于车体中心线)
 B,cx,cy,score\n           ← 钢球在摆杆上的位置 (像素坐标, 置信度)
 N\n                       ← 未检测到
 ```
 
-> 坐标原点建议以摆杆中心 O 为参考，STC32 接收到后做 PID 控制。
+> 坐标原点建议以摆杆中心 O 为参考，STC32 接收到后做 PID 控制（PID 输入：球位置 → 输出：伸缩装置指令（开环） → 摆杆倾斜 → 球在重力下向目标位置滚动）。
 
 ### OpenART 引脚映射 (cmm_cfg.csv)
 

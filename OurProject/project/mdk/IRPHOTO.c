@@ -1,64 +1,61 @@
 #include "IRPHOTO.h"
 
-// static const gpio_pin_enum ir_pins[8] = {
-//     IO_P00, IO_P01, IO_P02, IO_P03,  
-//     IO_P04, IO_P05, IO_P06, IO_P07,
-// };//Ô¤Éè
+// å…«è·¯çº¢å¤–å¾ªè¿¹ä¼ æ„Ÿå™¨å¼•è„š (P0.0 ~ P0.7)
+static const gpio_pin_enum ir_pins[8] = {
+    IO_P00, IO_P01, IO_P02, IO_P03,
+    IO_P04, IO_P05, IO_P06, IO_P07,
+};
 
-// void IRPHOTO_Init(void)
-// {
-//     int i;
-//     for (i = 0; i < 8; i++)
-//     {
-//          gpio_init(ir_pins[i], GPI, 0, GPI_PULL_UP);  
-//     }
-// }
-
-
-int calc_error(int s[8])//°ËÂ·¹âµç¹ÜÑ­¼£
+void IRPHOTO_Init(void)
 {
+    int i;
+    for (i = 0; i < 8; i++)
+    {
+        gpio_init(ir_pins[i], GPI, 0, GPI_PULL_UP);
+    }
+}
+
+// åŠ æƒåå·®è®¡ç®—
+// æƒé‡: {-7,-5,-3,-1, 1,3,5,7} â€” ä¸¤ä¾§æƒé‡é«˜ï¼Œä¸­é—´ä½
+// æ­£å€¼=åå³ï¼Œè´Ÿå€¼=åå·¦ï¼Œ0=å±…ä¸­
+int calc_error(int s[8])
+{
+    static const int8 weight[8] = { -7, -5, -3, -1, 1, 3, 5, 7 };
     int error = 0;
-    int last_error = 0;
-    int weight[8] = { -7, -5, -3, -1, 1, 3, 5, 7 };
     int i;
     for (i = 0; i < 8; i++)
     {
         if (s[i] == 1)
-        {
-            error += weight[i]; 
-        }
-    } 
+            error += weight[i];
+    }
     return error;
 }
 
-int is_stop(int s[8])//Í£Ö¹±êÖ¾¡£Á¬ĞøÈı¸ö¹âµç¹ÜÎªºÚÉ«Ê±£¬·µ»Ø1£¬·ñÔò·µ»Ø0
+// åœè½¦æ ‡å¿—æ£€æµ‹ï¼šâ‰¥3 ä¸ªè¿ç»­ä¼ æ„Ÿå™¨åŒæ—¶æ£€æµ‹åˆ°é»‘çº¿
+// é™„åŠ ä¿æŠ¤ï¼šå…¨éƒ¨ 8 è·¯æœªæ£€æµ‹åˆ°é»‘çº¿ â†’ è§†ä¸ºå†²å‡ºèµ›é“ï¼Œè¿”å› 2ï¼ˆåŒºåˆ«äºæ­£å¸¸åœè½¦ 1ï¼‰
+int is_stop(int s[8])
 {
     int i;
     int count = 0;
-    int has_line = 0; // ±ê¼ÇÊÇ·ñÓĞ¹âµç¹Ü¼ì²âµ½ºÚÉ«Ïß
+    int has_line = 0;
+
     for (i = 0; i < 8; i++)
     {
         if (s[i] == 1)
         {
             count++;
-            has_line = 1; // ±ê¼ÇÓĞ¹âµç¹Ü¼ì²âµ½ºÚÉ«Ïß
-        
-            if (count >= 3 )//Í£Ö¹±êÖ¾
-            {
-                return 1;
-            }
-
+            has_line = 1;
+            if (count >= 3)
+                return 1;       // åœè½¦æ ‡å¿—
         }
         else
         {
-        count = 0; // ÖØÖÃ¼ÆÊıÆ÷
+            count = 0;
         }
     }
+
     if (!has_line)
-        return 1; // ³ö½ç±£»¤
+        return 2;               // å†²å‡ºèµ›é“ä¿æŠ¤ï¼ˆåŒºåˆ«äºåœè½¦ï¼‰
 
-    return 0; // Ã»ÓĞÍ£Ö¹±êÖ¾
+    return 0;                   // æ­£å¸¸è¡Œé©¶
 }
-
-
-    

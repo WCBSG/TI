@@ -15,3 +15,8 @@ OurProject/project/mdk/out_file_temp/
 
 # OMV-RT5 vendor reference (not our code)
 OPenMV RT5/omv-rt-visual_module/
+
+# Large media files
+*.mp4
+*.avi
+*.mov

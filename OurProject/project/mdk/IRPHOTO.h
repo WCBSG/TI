@@ -3,8 +3,8 @@
 
 #include "zf_common_headfile.h"
 
-int calc_error(int s[8]);
-int is_stop(int s[8]);
-
+void IRPHOTO_Init(void);
+int  calc_error(int s[8]);
+int  is_stop(int s[8]);
 
 #endif
