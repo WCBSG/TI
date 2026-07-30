@@ -17,5 +17,6 @@
   "python.analysis.stubPath": "${workspaceFolder}\\OpenART Plus\\stubs",
   "python.analysis.diagnosticSeverityOverrides": {
     "reportMissingModuleSource": "none"
-  }
+  },
+  "C_Cpp.errorSquiggles": "disabled"
 }

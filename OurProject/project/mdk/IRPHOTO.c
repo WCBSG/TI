@@ -35,11 +35,14 @@ int is_stop(int s[8])//停止标志。连续三个光电管为黑色时，返回1，否则返回0
 {
     int i;
     int count = 0;
+    int has_line = 0; // 标记是否有光电管检测到黑色线
     for (i = 0; i < 8; i++)
     {
         if (s[i] == 1)
         {
             count++;
+            has_line = 1; // 标记有光电管检测到黑色线
+        
             if (count >= 3 )//停止标志
             {
                 return 1;
@@ -51,7 +54,7 @@ int is_stop(int s[8])//停止标志。连续三个光电管为黑色时，返回1，否则返回0
         count = 0; // 重置计数器
         }
     }
-    if (count == 0)
+    if (!has_line)
         return 1; // 出界保护
 
     return 0; // 没有停止标志

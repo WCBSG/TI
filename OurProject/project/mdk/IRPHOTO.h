@@ -6,4 +6,5 @@
 int calc_error(int s[8]);
 int is_stop(int s[8]);
 
+
 #endif
