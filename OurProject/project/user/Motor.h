@@ -5,6 +5,7 @@
 #include "PID.h"
 
 extern int16 encoder_data_dir_1, encoder_data_dir_2;
+extern uint8 driving;
 
 
 #define PIT_ENCODER             (TIM1_PIT)  // 编码器 PIT 定时器 用于更新 PID

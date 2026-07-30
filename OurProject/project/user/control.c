@@ -2,7 +2,7 @@
 #include "PID.h"
 #include "Motor.h"
 
-static PID_t steer_pid;
+PID_t steer_pid;
 
 void steer_init(void)
 {

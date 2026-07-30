@@ -919,6 +919,36 @@
               <FileType>5</FileType>
               <FilePath>..\user\tft_test.h</FilePath>
             </File>
+            <File>
+              <FileName>KEY.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\user\KEY.c</FilePath>
+            </File>
+            <File>
+              <FileName>KEY.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\user\KEY.h</FilePath>
+            </File>
+            <File>
+              <FileName>MENU.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\user\MENU.c</FilePath>
+            </File>
+            <File>
+              <FileName>MENU.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\user\MENU.h</FilePath>
+            </File>
+            <File>
+              <FileName>config.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\user\config.c</FilePath>
+            </File>
+            <File>
+              <FileName>config.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\user\config.h</FilePath>
+            </File>
           </Files>
         </Group>
       </Groups>
