@@ -272,7 +272,7 @@
               <MiscControls></MiscControls>
               <Define></Define>
               <Undefine></Undefine>
-              <IncludePath>..\..\libraries\zf_common;..\..\libraries\zf_components;..\..\libraries\zf_device;..\..\libraries\zf_driver;..\user;..\code;..\..\libraries\zf_components\stc32g_usb_lib;..\..\libraries\zf_components\seekfree_assistant</IncludePath>
+              <IncludePath>..\..\libraries\zf_common;..\..\libraries\zf_components;..\..\libraries\zf_device;..\..\libraries\zf_driver;..\user;..\WcLibraries;..\..\libraries\zf_components\stc32g_usb_lib;..\..\libraries\zf_components\seekfree_assistant</IncludePath>
             </VariousControls>
           </C251>
           <Ax51>
@@ -827,7 +827,19 @@
           </Files>
         </Group>
         <Group>
-          <GroupName>code</GroupName>
+          <GroupName>WcLibraries</GroupName>
+          <Files>
+            <File>
+              <FileName>WcTFT180.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\WcLibraries\WcTFT180.c</FilePath>
+            </File>
+            <File>
+              <FileName>WcTFT180.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\WcLibraries\WcTFT180.h</FilePath>
+            </File>
+          </Files>
         </Group>
         <Group>
           <GroupName>user</GroupName>
@@ -850,52 +862,62 @@
             <File>
               <FileName>IRPHOTO.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\IRPHOTO.c</FilePath>
+              <FilePath>..\user\IRPHOTO.c</FilePath>
             </File>
             <File>
               <FileName>IRPHOTO.h</FileName>
               <FileType>5</FileType>
-              <FilePath>.\IRPHOTO.h</FilePath>
+              <FilePath>..\user\IRPHOTO.h</FilePath>
             </File>
             <File>
               <FileName>Motor.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\Motor.c</FilePath>
+              <FilePath>..\user\Motor.c</FilePath>
             </File>
             <File>
               <FileName>Motor.h</FileName>
               <FileType>5</FileType>
-              <FilePath>.\Motor.h</FilePath>
+              <FilePath>..\user\Motor.h</FilePath>
             </File>
             <File>
               <FileName>PID.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\PID.c</FilePath>
+              <FilePath>..\user\PID.c</FilePath>
             </File>
             <File>
               <FileName>PID.h</FileName>
               <FileType>5</FileType>
-              <FilePath>.\PID.h</FilePath>
+              <FilePath>..\user\PID.h</FilePath>
             </File>
             <File>
               <FileName>control.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\control.c</FilePath>
+              <FilePath>..\user\control.c</FilePath>
             </File>
             <File>
               <FileName>control.h</FileName>
               <FileType>5</FileType>
-              <FilePath>.\control.h</FilePath>
+              <FilePath>..\user\control.h</FilePath>
             </File>
             <File>
               <FileName>camera.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\camera.c</FilePath>
+              <FilePath>..\user\camera.c</FilePath>
             </File>
             <File>
               <FileName>camera.h</FileName>
               <FileType>5</FileType>
-              <FilePath>.\camera.h</FilePath>
+              <FilePath>..\user\camera.h</FilePath>
+            </File>
+            <File>
+              <FileName>tft_test.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\user\tft_test.c</FilePath>
+            </File>
+            <File>
+              <FileName>tft_test.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\user\tft_test.h</FilePath>
             </File>
           </Files>
         </Group>

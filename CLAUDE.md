@@ -173,6 +173,7 @@ OpenART Plus/          ← 识别端 MicroPython 代码（OpenMV IDE 开发）
 OurProject/         ← 当前 STC32 工程（在此开发，why-456 维护）
   libraries/           ← 库文件（从 STC32 库复制）
   project/
+    WcLibraries/       ← 用户封装库（WcTFT180 安全屏幕接口等）
     code/              ← 用户外设驱动代码
     mdk/               ← MDK 工程文件
     user/              ← main.c / isr.c / isr.h
@@ -239,6 +240,7 @@ _archive/              ← 存档（M0项目/K230项目/模型项目）
 | `PID.c/h` | PID 控制器 | 增量式 PID，双电机速度闭环 + 舵机差速转向 |
 | `control.c/h` | 转向控制 | 差速转向（根据偏差调节左右轮目标速度） |
 | `isr.c/h` | 中断服务 | GPIO/UART/DMA/Timer 中断向量表，摄像头 VSYNC+DMA 回调 |
+| `tft_test.c/h` | TFT 屏幕测试 | 颜色填充/文字/数字/画点/方向/背光 6 项功能测试 |
 
 ### 八路红外循迹 (IRPHOTO)
 
@@ -346,13 +348,112 @@ void main(void) {
 |------|------|----------|
 | 时钟 | `clock_init(SYSTEM_CLOCK_96M)` / `SYSTEM_CLOCK_120M` | zf_common |
 | 延时 | `system_delay_ms(ms)` / `system_delay_us(us)` | zf_driver |
-| GPIO | `gpio_init(pin, mode, level, pull)` / `gpio_set(pin, lv)` / `gpio_get(pin)` | zf_driver |
+| GPIO | `gpio_init(pin, dir, dat, mode)` / `gpio_set_level(pin, dat)` / `gpio_get_level(pin)` / `gpio_low(pin)` / `gpio_high(pin)` | zf_driver |
 | PWM | `pwm_init(ch, freq, duty)` / `pwm_set_duty(ch, duty)` | zf_driver |
 | 编码器 | `encoder_dir_init(enc, pulse_pin, dir_pin)` / `encoder_get_count(enc)` | zf_driver |
 | 摄像头 | `mt9v03x_init()` / `mt9v03x_finish_flag` / `mt9v03x_image[][]` | zf_device |
 | WiFi SPI | `wifi_spi_init(ssid, pwd)` / `wifi_spi_socket_connect(...)` | zf_device |
 | 逐飞助手 | `seekfree_assistant_interface_init(...)` / `seekfree_assistant_camera_send()` | zf_components |
-| 调试输出 | `debug_init()` / `debug_write_string(...)` (USB-CDC) | zf_common |
+| 调试输出 | `debug_init()` / `debug_send_buffer(buff, len)` / `debug_read_buffer(buff, len)` (USB-CDC) | zf_common |
+
+### TFT180 显示屏 (zf_device_tft180)
+
+1.8 寸 RGB_TFT，驱动芯片未知（非 ST7735/ST7789），SPI_2 CH4，RGB565 格式。
+
+**坐标系统（关键！容易出错）**：
+
+`tft180_set_dir()` 根据方向设定 `tft180_x_max` / `tft180_y_max`：
+
+| 方向 | `dir < 2` (PORTAIT/180) | `dir >= 2` (CROSSWISE/180) |
+|------|--------------------------|-----------------------------|
+| x_max（宽） | **128** | 160 |
+| y_max（高） | **160** | 128 |
+| 字符/行 | 16 | 20 |
+| 行数 | 10 | 8 |
+
+> **注意**：`tft180_init()` 默认调用 `set_dir(TFT180_PORTAIT)` → x_max=128, y_max=160。**所有坐标必须满足 `x < tft180_x_max` 且 `y < tft180_y_max`**，否则触发 `zf_assert`。
+
+**引脚**：
+
+| 信号 | STC32 引脚 | 宏 |
+|------|-----------|-----|
+| SCL | P83 | `SPI2_CH4_SCLK_P83` |
+| SDA | P81 | `SPI2_CH4_MOSI_P81` |
+| RES | P70 | `TFT180_RES_PIN (IO_P70)` |
+| DC | P71 | `TFT180_DC_PIN (IO_P71)` |
+| CS | P35 | `TFT180_CS_PIN (IO_P35)` |
+| BL | P82 | `TFT180_BL_PIN (IO_P82)` |
+
+**API**：
+
+```c
+void tft180_init(void);
+void tft180_clear(uint16 color);
+void tft180_set_dir(tft180_dir_enum dir);        // PORTAIT / PORTAIT_180 / CROSSWISE / CROSSWISE_180
+void tft180_set_color(uint16 pen, uint16 bgcolor);
+void tft180_draw_point(uint16 x, uint16 y, uint16 color);
+void tft180_show_char(uint16 x, uint16 y, const char dat);      // 8×16 字符
+void tft180_show_string(uint16 x, uint16 y, const char dat[]);  // 横向排列
+void tft180_show_int8/uint8/int16/uint16(uint16 x, uint16 y, ...);
+void tft180_show_int32(uint16 x, uint16 y, int32 dat, uint8 num);
+void tft180_show_float(uint16 x, uint16 y, double dat, uint8 num, uint8 pointnum);
+void tft180_show_gray_image(uint16 x, uint16 y, const uint8 *img, uint16 w, uint16 h, uint16 dw, uint16 dh, uint8 threshold);
+```
+
+**已知陷阱**：
+
+| 陷阱 | 错误写法 | 正确写法 |
+|------|---------|---------|
+| **背光控制不能用宏** | `TFT180_BL(0)` / `TFT180_BL(1)` | `gpio_set_level(TFT180_BL_PIN, 0/1)` |
+| **串口无 write_string** | `debug_write_string("...")` | `debug_send_buffer((uint8*)"...", len)` |
+
+> `TFT180_BL(x)` 宏展开为 `P82 = x`，但 STC32 上 **P8 端口不是位可寻址 SFR**（仅 P0-P3 是），编译报错 `undefined identifier 'P82'`。必须用 `gpio_set_level` 替代。
+
+### Keil 工程管理
+
+`.uvproj` 是 XML 文件，新增 `.c/.h` 不会自动注册。添加文件有两种方式：
+
+1. **Keil IDE**：右键 `user` 组 → Add Existing Files
+2. **手动编辑** `.uvproj` XML，在对应 `<Group>` 内插入：
+```xml
+<File>
+  <FileName>xxx.c</FileName>
+  <FileType>1</FileType>         <!-- 1=C源文件, 5=头文件 -->
+  <FilePath>..\user\xxx.c</FilePath>
+</File>
+```
+
+路径从 `project/mdk/` 出发，`..\user\` 解析到 `project/user/`。
+
+### WcTFT180 安全封装（`project/WcLibraries/`）
+
+**为什么需要**：原生 `tft180_show_string` 在字符串超出屏幕右边界时会触发 `zf_assert` 死机（T3 测试已踩坑）。
+
+**核心安全机制**：
+- 所有显示函数调用前计算 `(tft180_x_max - x) / 8`，只写入能容纳的字符数
+- 越界坐标静默丢弃，不 crash
+- 向右超出自动截断，向下超出自动换行
+- 数字格式化为字符串后再安全显示（不会因 `num` 参数设错而溢出）
+
+**两种使用模式**：
+
+```c
+// 模式 A：无光标（推荐用于调试输出、固定布局）
+WcTFT_PrintAt(0, 16, "Sensor OK");          // 指定位置，不跟踪光标
+WcTFT_PrintIntAt(80, 16, 42);               // 数字同理
+WcTFT_PrintCenter(3, "Title");              // 居中
+WcTFT_PrintRow(1, "label", "value");        // "label: value" 格式
+
+// 模式 B：光标模式（推荐用于日志流输出）
+WcTFT_GotoRow(0);
+WcTFT_Print("Temp = ");
+WcTFT_PrintFloat(25.3, 1);
+WcTFT_Newline();
+WcTFT_Print("Loop: ");
+WcTFT_PrintInt(cnt);
+```
+
+**完整 API**：见 `WcTFT180.h` 注释，主要包括 `WcTFT_Init / Clear / Backlight / SetColor / Print / PrintAt / PrintCenter / PrintRow / PrintInt / PrintFloat / PrintIntAt / PrintFloatAt / Goto / GotoRow / Newline / Tab / DrawPoint / DrawHLine / DrawVLine / DrawRect / FillRect / GetMaxCols / GetMaxRows`。
 
 ## OMV-RT5 编程约定
 

@@ -31,6 +31,17 @@ int calc_error(int s[8])
     return error;
 }
 
+// 在 TFT180 屏幕上显示 8 路红外传感器状态
+void IRPHOTO_Display(int s[8])
+{
+    int i;
+    for (i = 0; i < 8; i++)
+    {
+        tft180_show_uint8(10 + i * 8, 50, s[i]);   // 横向排列 8 个值 (0/1)
+    }
+    tft180_show_int8(10, 70, calc_error(s));        // 下一行显示加权偏差
+}
+
 // 停车标志检测：≥3 个连续传感器同时检测到黑线
 // 附加保护：全部 8 路未检测到黑线 → 视为冲出赛道，返回 2（区别于正常停车 1）
 int is_stop(int s[8])
