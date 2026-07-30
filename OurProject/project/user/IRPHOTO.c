@@ -11,7 +11,7 @@ void IRPHOTO_Init(void)
     int i;
     for (i = 0; i < 8; i++)
     {
-        gpio_init(ir_pins[i], GPI, 0, GPI_PULL_UP);
+        gpio_init(ir_pins[i], GPI, 1, GPI_PULL_UP);
     }
 }
 
@@ -56,7 +56,7 @@ int is_stop(int s[8])
         {
             count++;
             has_line = 1;
-            if (count >= 3)
+            if (count >= 4)
                 return 1;       // 停车标志
         }
         else
@@ -69,4 +69,12 @@ int is_stop(int s[8])
         return 2;               // 冲出赛道保护（区别于停车）
 
     return 0;                   // 正常行驶
+}
+
+
+void IRPHOTO_Read(int s[8])
+{
+    int i;
+    for (i = 0; i < 8; i++)
+        s[i] = !gpio_get_level(ir_pins[i]);  // 黑=1, 白=0
 }
