@@ -1,5 +1,17 @@
 /_archive/
+/模型/
 __pycache__/
 *.pyc
 .DS_Store
 Thumbs.db
+
+# IDE / Editor
+*.uvgui.*
+*.uvopt
+
+# Build artifacts
+OurProject/project/mdk/out_file/
+OurProject/project/mdk/out_file_temp/
+
+# OMV-RT5 vendor reference (not our code)
+OPenMV RT5/omv-rt-visual_module/
