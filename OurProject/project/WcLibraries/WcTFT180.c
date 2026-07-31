@@ -187,33 +187,31 @@ void WcTFT_SetColor(uint16 pen, uint16 bg)
 void WcTFT_Print(const char *str)
 {
     uint8 written;
-    uint8 pos_x, pos_y;
-    uint8 i;
-    const char *p;
+    const char *p = str;
 
-    pos_x = cursor_x;
-    pos_y = cursor_y;
-
-    /* 先设置颜色 */
     tft180_set_color(cur_pen, cur_bg);
 
-    written = safe_str(pos_x, pos_y, str);
-
-    /* 计算光标前进 */
-    cursor_x = (uint8)(pos_x + written * CH_W);
-
-    /* 字符串被截断时的处理 */
-    p = str;
-    for (i = 0; i < written; i++) p++;
-    if (*p != '\0')  /* 还有未写完的字符 */
+    /* 循环写每一段——wrap_mode=1 时换行继续，wrap_mode=0 时仅写一行 */
+    while (*p != '\0' && cursor_y < tft180_y_max)
     {
-        if (wrap_mode && (pos_y + CH_H) < tft180_y_max)
+        written = safe_str(cursor_x, cursor_y, p);
+        cursor_x = (uint8)(cursor_x + written * CH_W);
+
+        /* 跳过已写字符 */
+        p += written;
+
+        /* 还有剩余字符 */
+        if (*p != '\0')
         {
-            /* 自动换行模式：递归写剩余部分 */
-            WcTFT_Newline();
-            WcTFT_Print(p);
+            if (wrap_mode && (cursor_y + CH_H) < tft180_y_max)
+            {
+                WcTFT_Newline();  /* 换行继续 */
+            }
+            else
+            {
+                break;  /* 截断模式：丢弃剩余 */
+            }
         }
-        /* 截断模式：静默丢弃剩余字符（默认行为） */
     }
 }
 

@@ -839,6 +839,26 @@
               <FileType>5</FileType>
               <FilePath>..\WcLibraries\WcTFT180.h</FilePath>
             </File>
+            <File>
+              <FileName>WcMenu.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\WcLibraries\WcMenu.c</FilePath>
+            </File>
+            <File>
+              <FileName>WcMenu.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\WcLibraries\WcMenu.h</FilePath>
+            </File>
+            <File>
+              <FileName>protocol.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\WcLibraries\protocol.c</FilePath>
+            </File>
+            <File>
+              <FileName>protocol.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\WcLibraries\protocol.h</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -910,16 +930,6 @@
               <FilePath>..\user\camera.h</FilePath>
             </File>
             <File>
-              <FileName>tft_test.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\user\tft_test.c</FilePath>
-            </File>
-            <File>
-              <FileName>tft_test.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\user\tft_test.h</FilePath>
-            </File>
-            <File>
               <FileName>KEY.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\user\KEY.c</FilePath>
@@ -928,16 +938,6 @@
               <FileName>KEY.h</FileName>
               <FileType>5</FileType>
               <FilePath>..\user\KEY.h</FilePath>
-            </File>
-            <File>
-              <FileName>MENU.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\user\MENU.c</FilePath>
-            </File>
-            <File>
-              <FileName>MENU.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\user\MENU.h</FilePath>
             </File>
             <File>
               <FileName>config.c</FileName>

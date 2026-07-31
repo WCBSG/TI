@@ -1,16 +1,97 @@
 #include "zf_common_headfile.h"
+#include "WcTFT180.h"
+#include "WcMenu.h"
 #include "control.h"
 #include "IRPHOTO.h"
 #include "Motor.h"
 #include "PID.h"
+#include "KEY.h"
+#include "MENU.h"
+#include "config.h"
 
+
+/* ═══════════════════════════════════════════════════════════
+ * 页面定义
+ * ════════════════════════════════════════════════════════════ */
+
+/* ── Motor1 PID 页 ── */
+static const MenuItem motor1_items[] = {
+    MENU_ITEM_VAL(1, "Kp",  &motor1_pid.Kp,     1),
+    MENU_ITEM_VAL(2, "Ki",  &motor1_pid.Ki,     1),
+    MENU_ITEM_VAL(3, "Kd",  &motor1_pid.Kd,     1),
+    MENU_ITEM_VAL(4, "Spd", &motor1_pid.Target, 10),
+};
+static MenuPage page_motor1 = MENU_PAGE("Motor1 PID", motor1_items, 4);
+
+/* ── Motor2 PID 页 ── */
+static const MenuItem motor2_items[] = {
+    MENU_ITEM_VAL(1, "Kp",  &motor2_pid.Kp,     1),
+    MENU_ITEM_VAL(2, "Ki",  &motor2_pid.Ki,     1),
+    MENU_ITEM_VAL(3, "Kd",  &motor2_pid.Kd,     1),
+    MENU_ITEM_VAL(4, "Spd", &motor2_pid.Target, 10),
+};
+static MenuPage page_motor2 = MENU_PAGE("Motor2 PID", motor2_items, 4);
+
+/* ── Steer PID 页 ── */
+static const MenuItem steer_items[] = {
+    MENU_ITEM_VAL(1, "Kp",  &steer_pid.Kp,     1),
+    MENU_ITEM_VAL(2, "Ki",  &steer_pid.Ki,     1),
+    MENU_ITEM_VAL(3, "Kd",  &steer_pid.Kd,     1),
+    MENU_ITEM_VAL(4, "Max", &steer_pid.OutMax, 5),
+    MENU_ITEM_VAL(5, "Min", &steer_pid.OutMin, 5),
+};
+static MenuPage page_steer = MENU_PAGE("Steer PID", steer_items, 5);
+
+/* ── Base Speed 页 ── */
+static const MenuItem speed_items[] = {
+    MENU_ITEM_VAL(1, "Spd", &motor1_pid.Target, 10),
+};
+static MenuPage page_speed = MENU_PAGE("Base Speed", speed_items, 1);
+
+
+/* ═══════════════════════════════════════════════════════════
+ * 回调：子页导航
+ * ════════════════════════════════════════════════════════════ */
+
+static void cb_motor1(void) { Menu_Push(&page_motor1); }
+static void cb_motor2(void) { Menu_Push(&page_motor2); }
+static void cb_steer(void)  { Menu_Push(&page_steer);  }
+static void cb_speed(void)  { Menu_Push(&page_speed);  }
+
+
+/* ═══════════════════════════════════════════════════════════
+ * Launch 页面
+ * ════════════════════════════════════════════════════════════ */
+
+static uint8 launch_triggered = 0;
+
+static const MenuItem launch_items[] = {
+    MENU_ITEM(1, "GO!", NULL),     /* callback 由按键逻辑处理 */
+};
+static MenuPage page_launch = MENU_PAGE("LAUNCH", launch_items, 1);
+
+
+/* ═══════════════════════════════════════════════════════════
+ * 主菜单
+ * ════════════════════════════════════════════════════════════ */
+
+static const MenuItem main_items[] = {
+    MENU_ITEM(1, "Motor1 PID", cb_motor1),
+    MENU_ITEM(2, "Motor2 PID", cb_motor2),
+    MENU_ITEM(3, "Steer PID",  cb_steer),
+    MENU_ITEM(4, "Base Speed", cb_speed),
+};
+static MenuPage page_main = MENU_PAGE("Main Menu", main_items, 4);
+
+
+/* ═══════════════════════════════════════════════════════════ */
 void main(void)
 {
     int s[8];
 
     clock_init(SYSTEM_CLOCK_96M);
     debug_init();
-    tft180_init();
+    WcTFT_Init();
 
     IRPHOTO_Init();
     Motor_Init();
@@ -22,6 +103,22 @@ void main(void)
     pit_ms_init(PIT_ENCODER, 5, pit_handler);
 
     tft180_set_color(0x0000, 0xFFFF);
+    tft180_clear(0xFFFF);
+
+    // ===== 菜单阶段 =====
+
+    while (1)
+    {
+        button_control();
+        menu_update();
+        menu_show();
+
+        if (menu_launch())
+            break;
+
+        system_delay_ms(50);
+    }
+
     tft180_clear(0xFFFF);
 
     driving = 1;
