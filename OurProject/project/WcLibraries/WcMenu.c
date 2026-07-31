@@ -1,6 +1,6 @@
 /*********************************************************************************************************************
 * 文件名称          WcMenu.c
-* 说明              栈式菜单实现 — 5 键导航、参数编辑
+* 说明              栈式菜单实现 — 5 键导航、参数编辑（带值域钳位）
 *
 * 绘制约定（128×160 PORTRAIT）：
 *   正常选中: "> Name: val"  白底黑字
@@ -30,6 +30,15 @@ static int8     top = -1;
 static MenuPage* stack_top(void)
 {
     return (top >= 0) ? stack[top] : NULL;
+}
+
+/* ── 值域钳位 ── */
+
+static int16 clamp_val(int16 v, const MenuItem *item)
+{
+    if (v < item->min) return item->min;
+    if (v > item->max) return item->max;
+    return v;
 }
 
 /* ── 栈操作 ── */
@@ -66,7 +75,7 @@ void Menu_Clear(void) { top = -1; WcTFT_Clear(RGB565_BLACK); }
 
 /* ── 5 键导航 ── */
 
-/** Key1: 上 / 参数+ */
+/** Key1: 上 / 参数+（带钳位） */
 void Menu_Inc(void)
 {
     MenuPage *p = stack_top();
@@ -75,7 +84,10 @@ void Menu_Inc(void)
     if (p->editing)
     {
         const MenuItem *item = &p->items[p->cursor];
-        if (item->value) *item->value = (int16)(*item->value + item->step);
+        if (item->value)
+        {
+            *item->value = clamp_val((int16)(*item->value + item->step), item);
+        }
     }
     else
     {
@@ -88,7 +100,7 @@ void Menu_Inc(void)
     Menu_Draw();
 }
 
-/** Key2: 下 / 参数- */
+/** Key2: 下 / 参数-（带钳位） */
 void Menu_Dec(void)
 {
     MenuPage *p = stack_top();
@@ -97,7 +109,10 @@ void Menu_Dec(void)
     if (p->editing)
     {
         const MenuItem *item = &p->items[p->cursor];
-        if (item->value) *item->value = (int16)(*item->value - item->step);
+        if (item->value)
+        {
+            *item->value = clamp_val((int16)(*item->value - item->step), item);
+        }
     }
     else
     {
@@ -190,7 +205,23 @@ void Menu_Home(MenuPage *main_page)
         top = count;
     }
 
-    Menu_Push(main_page);
+    /*
+     * 修复：栈满时 Push 会静默失败。
+     * 若清理后栈仍满，用主菜单直接覆盖栈顶（等价于 pop + push）。
+     */
+    if (top >= STACK_MAX - 1)
+    {
+        top = STACK_MAX - 1;
+        stack[top] = main_page;
+        main_page->cursor  = 0;
+        main_page->scroll  = 0;
+        main_page->editing = 0;
+        Menu_Draw();
+    }
+    else
+    {
+        Menu_Push(main_page);
+    }
 }
 
 /* ── 其他查询 ── */
@@ -204,6 +235,15 @@ uint8 Menu_IsTop(MenuPage *page) { return (page && stack_top() == page) ? 1 : 0;
 
 /* ── 绘制 ── */
 
+/** 用空格填充矩形行（比 FillRect 快 ~8×） */
+static void fill_row(uint8 y, uint16 fg, uint16 bg)
+{
+    uint8 c;
+    WcTFT_SetColor(fg, bg);
+    for (c = 0; c < tft180_x_max; c += 64)
+        WcTFT_PrintAt(c, y, "        ");  /* 8 个空格 × 8px = 64px */
+}
+
 void Menu_Draw(void)
 {
     MenuPage *p = stack_top();
@@ -211,17 +251,13 @@ void Menu_Draw(void)
 
     if (!p) return;
 
-    /* 标题栏：用空格填充整行（比 FillRect 快 ~8×） */
-    {
-        uint8 c;
-        WcTFT_SetColor(CLR_TITLE_FG, CLR_TITLE_BG);
-        for (c = 0; c < tft180_x_max; c += 64)
-            WcTFT_PrintAt(c, 0, "        ");  /* 8 个空格 × 8px = 64px */
-    }
+    /* 标题栏 */
+    fill_row(0, CLR_TITLE_FG, CLR_TITLE_BG);
     title_len = 0;
     while (p->title[title_len]) title_len++;
     if (title_len > (tft180_x_max / 8)) title_len = (uint8)(tft180_x_max / 8);
     title_x = (uint8)((tft180_x_max - title_len * 8) / 2);
+    WcTFT_SetColor(CLR_TITLE_FG, CLR_TITLE_BG);
     WcTFT_PrintAt(title_x, 0, p->title);
 
     if (p->count == 0) return;
@@ -233,13 +269,8 @@ void Menu_Draw(void)
         idx = p->scroll + i;
         if (idx >= p->count)
         {
-            /* 超出的行：用空格填充（黑底） */
-            WcTFT_SetColor(CLR_NORM_FG, CLR_NORM_BG);
-            {
-                uint8 c;
-                for (c = 0; c < tft180_x_max; c += 64)
-                    WcTFT_PrintAt(c, y, "        ");
-            }
+            /* 超出行：黑底清空 */
+            fill_row(y, CLR_NORM_FG, CLR_NORM_BG);
             continue;
         }
 
@@ -249,16 +280,13 @@ void Menu_Draw(void)
             uint8 ed  = p->editing && sel;
             uint16 bg, fg;
             char pf[4];
-            uint8 c;
 
             if (ed)      { pf[0]='>'; pf[1]='*'; pf[2]=' '; pf[3]=0; bg=CLR_EDIT_BG; fg=CLR_EDIT_FG; }
             else if (sel){ pf[0]='>'; pf[1]=' '; pf[2]=' '; pf[3]=0; bg=CLR_SEL_BG;  fg=CLR_SEL_FG;  }
             else         { pf[0]=' '; pf[1]=' '; pf[2]=' '; pf[3]=0; bg=CLR_NORM_BG; fg=CLR_NORM_FG; }
 
-            /* 空格填充整行（比 FillRect 快 ~8×） */
-            WcTFT_SetColor(fg, bg);
-            for (c = 0; c < tft180_x_max; c += 64)
-                WcTFT_PrintAt(c, y, "        ");
+            /* 清空行背景 */
+            fill_row(y, fg, bg);
 
             /* 内容覆盖 */
             WcTFT_PrintAt(0,  y, pf);

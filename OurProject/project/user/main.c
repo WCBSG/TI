@@ -50,10 +50,10 @@ static MenuPage page_speed = MENU_PAGE("Base Speed", speed_items, 1);
 
 /* ── DRV8701 测试页 ── */
 static const MenuItem drv8701_items[] = {
-    MENU_ITEM_VAL(1, "IN1-P60", &drv8701_state[0], 1),
-    MENU_ITEM_VAL(2, "IN2-P62", &drv8701_state[1], 1),
-    MENU_ITEM_VAL(3, "IN3-P40", &drv8701_state[2], 1),
-    MENU_ITEM_VAL(4, "IN4-P42", &drv8701_state[3], 1),
+    MENU_ITEM_BOOL(1, "IN1-P60", &drv8701_state[0]),
+    MENU_ITEM_BOOL(2, "IN2-P62", &drv8701_state[1]),
+    MENU_ITEM_BOOL(3, "IN3-P40", &drv8701_state[2]),
+    MENU_ITEM_BOOL(4, "IN4-P42", &drv8701_state[3]),
 };
 static MenuPage page_drv8701 = MENU_PAGE("DRV8701 Test", drv8701_items, 4);
 

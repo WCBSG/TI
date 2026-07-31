@@ -25,6 +25,6 @@ void DRV8701_SyncPins(void)
     uint8 i;
     for (i = 0; i < 4; i++)
     {
-        gpio_set_level(drv8701_pins[i], (uint8)drv8701_state[i]);
+        gpio_set_level(drv8701_pins[i], drv8701_state[i] ? 1 : 0);
     }
 }

@@ -28,6 +28,8 @@ typedef struct {
     void      (*callback)(void);   /* Key3 回调（value!=NULL 则用于进入编辑态） */
     int16      *value;             /* 可编辑值指针（NULL=纯导航项） */
     int16       step;              /* 编辑步长 */
+    int16       min;               /* 值下限（含） */
+    int16       max;               /* 值上限（含） */
 } MenuItem;
 
 typedef struct {
@@ -41,8 +43,9 @@ typedef struct {
 } MenuPage;
 
 /* ── 构造宏 ── */
-#define MENU_ITEM(_id, _name, _cb)              { (_id), (_name), (_cb), NULL, 0 }
-#define MENU_ITEM_VAL(_id, _name, _val_ptr, _st) { (_id), (_name), NULL, (_val_ptr), (_st) }
+#define MENU_ITEM(_id, _name, _cb)              { (_id), (_name), (_cb), NULL, 0,     0,      0 }
+#define MENU_ITEM_VAL(_id, _name, _val_ptr, _st) { (_id), (_name), NULL, (_val_ptr), (_st), -32768, 32767 }
+#define MENU_ITEM_BOOL(_id, _name, _val_ptr)      { (_id), (_name), NULL, (_val_ptr), 1,     0,      1 }
 #define MENU_PAGE(_title, _items, _cnt)          { (_title), (_items), (_cnt), 0, 0, 0, 0 }
 
 /* ── 初始化和状态 ── */
