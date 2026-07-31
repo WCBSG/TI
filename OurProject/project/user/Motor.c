@@ -22,12 +22,12 @@ void motor1_control(int16 motor_duty)
 {
    if(motor_duty >= 0)                                                          
    {
-        gpio_set_level(DIR_1, 1);                        
+        gpio_set_level(DIR_1, 0);                        
         pwm_set_duty(PWM_1, motor_duty);                   
 	}
 	else 
 	{
-		gpio_set_level(DIR_1, 0);                               
+		gpio_set_level(DIR_1, 1);                               
       pwm_set_duty(PWM_1, -motor_duty);  
 	}
                            
@@ -37,12 +37,12 @@ void motor2_control(int16 motor_duty)
 {
    if(motor_duty >= 0)                                                          
    {
-        gpio_set_level(DIR_2, 1);                                
+        gpio_set_level(DIR_2, 0);                                
         pwm_set_duty(PWM_2, motor_duty);                   
 	}
 	else 
 	{
-		gpio_set_level(DIR_2, 0);                             
+		gpio_set_level(DIR_2, 1);                             
       pwm_set_duty(PWM_2, -motor_duty);  
 	}
                            
@@ -51,8 +51,8 @@ void motor2_control(int16 motor_duty)
 void pit_handler(void)
 {
    
-    encoder_data_dir_1 = encoder_get_count(ENCODER_DIR_1);
-    encoder_data_dir_2 = encoder_get_count(ENCODER_DIR_2);
+    encoder_data_dir_1 = -encoder_get_count(ENCODER_DIR_1);
+    encoder_data_dir_2 = -encoder_get_count(ENCODER_DIR_2);
 
     encoder_clear_count(ENCODER_DIR_1);
     encoder_clear_count(ENCODER_DIR_2);

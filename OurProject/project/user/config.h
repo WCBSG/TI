@@ -3,13 +3,12 @@
 
 #include "zf_common_headfile.h"
 
-typedef struct {
-    int16 motor1_kp, motor1_ki, motor1_kd, motor1_target;
-    int16 motor2_kp, motor2_ki, motor2_kd, motor2_target;
-    int16 steer_kp,  steer_ki,  steer_kd,  steer_max, steer_min;
-} config_t;
+#define FLASH_SIZE 16
+extern int16 flash_buff[FLASH_SIZE];
+extern int16 down_buff[FLASH_SIZE];
 
 void config_save(void);
 void config_load(void);
+uint8 config_valid(void);
 
 #endif

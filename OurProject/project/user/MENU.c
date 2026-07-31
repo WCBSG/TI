@@ -7,6 +7,7 @@
 
 static uint8 menu_page = 0;
 static uint8 menu_item = 0;
+static uint8 prev_page = 0xFF;
 
 static const uint8 item_count[5] = { 4, 4, 5, 1, 0 };
 
@@ -91,7 +92,7 @@ void menu_update(void)
                     case 1: if(steer_pid.Ki > 0) steer_pid.Ki -= 1; break;
                     case 2: if(steer_pid.Kd > 0) steer_pid.Kd -= 1; break;
                     case 3: if(steer_pid.OutMax > 0) steer_pid.OutMax -= 5; break;
-                    case 4: if(steer_pid.OutMin < 0) steer_pid.OutMin -= 5; break;
+                    case 4: steer_pid.OutMin -= 5; break;
                 } break;
             case 3:
                 if(motor1_pid.Target > 0) motor1_pid.Target -= 10;
@@ -104,6 +105,12 @@ void menu_update(void)
 void menu_show(void)
 {
     uint8 row = 1;
+
+    if (menu_page != prev_page)
+    {
+        tft180_clear(0xFFFF);
+        prev_page = menu_page;
+    }
 
     if (menu_page == 0)
     {
@@ -150,6 +157,7 @@ void menu_show(void)
         tft180_show_int16(12*6, row*16, motor1_pid.Target); row++;
     }
     else if (menu_page == 4)
+    
     {
         tft180_show_string(0, 0, "  LAUNCH");
         tft180_show_string(0, row*16, " GO GO GO ");
