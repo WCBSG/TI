@@ -6,8 +6,8 @@
 #include "Motor.h"
 #include "PID.h"
 #include "KEY.h"
-#include "MENU.h"
 #include "config.h"
+#include "DRV8701.h"
 
 
 /* ═══════════════════════════════════════════════════════════
@@ -48,6 +48,15 @@ static const MenuItem speed_items[] = {
 };
 static MenuPage page_speed = MENU_PAGE("Base Speed", speed_items, 1);
 
+/* ── DRV8701 测试页 ── */
+static const MenuItem drv8701_items[] = {
+    MENU_ITEM_VAL(1, "IN1-P60", &drv8701_state[0], 1),
+    MENU_ITEM_VAL(2, "IN2-P62", &drv8701_state[1], 1),
+    MENU_ITEM_VAL(3, "IN3-P40", &drv8701_state[2], 1),
+    MENU_ITEM_VAL(4, "IN4-P42", &drv8701_state[3], 1),
+};
+static MenuPage page_drv8701 = MENU_PAGE("DRV8701 Test", drv8701_items, 4);
+
 
 /* ═══════════════════════════════════════════════════════════
  * 回调：子页导航
@@ -57,6 +66,7 @@ static void cb_motor1(void) { Menu_Push(&page_motor1); }
 static void cb_motor2(void) { Menu_Push(&page_motor2); }
 static void cb_steer(void)  { Menu_Push(&page_steer);  }
 static void cb_speed(void)  { Menu_Push(&page_speed);  }
+static void cb_drv8701(void){ Menu_Push(&page_drv8701);}
 
 
 /* ═══════════════════════════════════════════════════════════
@@ -80,8 +90,9 @@ static const MenuItem main_items[] = {
     MENU_ITEM(2, "Motor2 PID", cb_motor2),
     MENU_ITEM(3, "Steer PID",  cb_steer),
     MENU_ITEM(4, "Base Speed", cb_speed),
+    MENU_ITEM(5, "DRV8701",    cb_drv8701),
 };
-static MenuPage page_main = MENU_PAGE("Main Menu", main_items, 4);
+static MenuPage page_main = MENU_PAGE("Main Menu", main_items, 5);
 
 
 /* ═══════════════════════════════════════════════════════════ */
@@ -94,38 +105,70 @@ void main(void)
     WcTFT_Init();
 
     IRPHOTO_Init();
+    button_init();
     Motor_Init();
     encoder_init();
+    DRV8701_TestInit();   /* DRV8701 测试：P60/62/40/42 → GPIO 输出 */
     motor1_pid_init();
     motor2_pid_init();
     steer_init();
+    config_load();
 
     pit_ms_init(PIT_ENCODER, 5, pit_handler);
 
-    tft180_set_color(0x0000, 0xFFFF);
-    tft180_clear(0xFFFF);
+    /* ── 启动主菜单 ── */
+    Menu_Init();
+    Menu_Push(&page_main);
 
-    // ===== 菜单阶段 =====
-
-    while (1)
+    /* ── 主循环：按键 → 菜单 ── */
+    launch_triggered = 0;
+    while (!launch_triggered)
     {
         button_control();
-        menu_update();
-        menu_show();
 
-        if (menu_launch())
-            break;
+        if (key1_flag) { key1_flag = 0; Menu_Inc();           }  /* Key1: 上/+ */
+        if (key2_flag) { key2_flag = 0; Menu_Dec();           }  /* Key2: 下/- */
+        if (key3_flag) { key3_flag = 0; Menu_Edit();          }  /* Key3: 确定/编辑 */
+        if (key4_flag) { key4_flag = 0; Menu_Cancel();        }  /* Key4: 取消/返回 */
+
+        if (key5_flag)
+        {
+            key5_flag = 0;
+
+            /* 主菜单按 Key5 → 进入 Launch */
+            if (Menu_IsTop(&page_main))
+            {
+                config_save();
+                Menu_Push(&page_launch);
+            }
+            else
+            {
+                Menu_Home(&page_main);
+            }
+        }
+
+        /* Launch 页按 Key3 触发发车 */
+        if (Menu_IsTop(&page_launch) && key3_flag)
+        {
+            key3_flag = 0;
+            launch_triggered = 1;
+        }
+
+        /* DRV8701 测试：每轮同步 GPIO 输出 */
+        DRV8701_SyncPins();
 
         system_delay_ms(50);
     }
 
-    tft180_clear(0xFFFF);
-
+    /* ── 行驶阶段 ── */
+    WcTFT_Clear(RGB565_WHITE);
+    motor1_pid.Target = motor2_pid.Target;  /* 确保两轮同速 */
     driving = 1;
 
     while (1)
     {
         IRPHOTO_Read(s);
+        IRPHOTO_Display(s);
 
         if (is_stop(s))
         {

@@ -949,6 +949,16 @@
               <FileType>5</FileType>
               <FilePath>..\user\config.h</FilePath>
             </File>
+            <File>
+              <FileName>DRV8701.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\user\DRV8701.c</FilePath>
+            </File>
+            <File>
+              <FileName>DRV8701.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\user\DRV8701.h</FilePath>
+            </File>
           </Files>
         </Group>
       </Groups>
