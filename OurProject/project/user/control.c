@@ -25,10 +25,20 @@ void steer_init(void)
 
 void steer_set(int error, int base_speed)
 {
+    int16 left_target, right_target;
+
     steer_pid.Actual  = error;
     PID_Update(&steer_pid);
 
-    motor1_pid.Target = base_speed - steer_pid.Out;
-    motor2_pid.Target = base_speed + steer_pid.Out;
+    left_target  = base_speed - steer_pid.Out;
+    right_target = base_speed + steer_pid.Out;
+
+    /* 钳位：轮子最多停转（0），禁止反转 */
+    if (left_target  < 0) left_target  = 0;
+    if (right_target < 0) right_target = 0;
+
+    /* 左后轮（motor1）反向安装：负 duty → 前进 */
+    motor1_pid.Target = -left_target;
+    motor2_pid.Target = right_target;
 }
 

@@ -2,9 +2,9 @@
 * 文件名称          KEY.c
 * 说明              5 键按键检测实现 — 释放沿触发 + 长按自动重复（线性加速）
 *
-* 自动重复参数（ticks ≈ button_control 调用次数 ≈ 50ms）：
-*   启动延迟 8 ticks (400ms) → 初始间隔 5 ticks (250ms)
-*   → 每次重复减 1 tick (50ms) → 最小间隔 1 tick (50ms)
+* 自动重复参数（ticks ≈ button_control 调用次数 ≈ 10ms）：
+*   启动延迟 40 ticks (400ms) → 初始间隔 25 ticks (250ms)
+*   → 每次重复减 5 ticks (50ms) → 最小间隔 1 tick (10ms)
 ********************************************************************************************************************/
 
 #include "KEY.h"
@@ -18,11 +18,11 @@
 #define SWITCH1_PIN     IO_P90
 #define SWITCH2_PIN     IO_P91
 
-/* ── 自动重复参数（ticks，每 tick ≈ 50ms） ── */
-#define HOLD_STARTUP_TICKS   8    /* 400ms — 区分短按/长按 */
-#define REPEAT_INIT_TICKS    5    /* 250ms — 首次重复间隔 */
-#define REPEAT_ACCEL_TICKS   1    /* 每次重复加速 1 tick (50ms) */
-#define REPEAT_MIN_TICKS     1    /* 50ms — 最快每帧触发 */
+/* ── 自动重复参数（ticks，每 tick ≈ 10ms） ── */
+#define HOLD_STARTUP_TICKS   40   /* 400ms — 区分短按/长按 */
+#define REPEAT_INIT_TICKS    25   /* 250ms — 首次重复间隔 */
+#define REPEAT_ACCEL_TICKS   5    /* 每次重复加速 5 ticks (50ms) */
+#define REPEAT_MIN_TICKS     1    /* 10ms — 最快重复间隔 */
 
 /* ── 全局标志 ── */
 uint8 key1_flag, key2_flag, key3_flag, key4_flag, key5_flag;
@@ -51,7 +51,7 @@ void button_init(void)
 }
 
 
-/** 每 50ms 调用一次。repeat_mask 按位指定哪些键启用长按自动重复。 */
+/** 每 10ms 调用一次。repeat_mask 按位指定哪些键启用长按自动重复。 */
 void button_control(uint8 repeat_mask)
 {
     uint8 i;

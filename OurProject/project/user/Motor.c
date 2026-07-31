@@ -51,18 +51,21 @@ void motor2_control(int16 motor_duty)
 
 void pit_handler(void)
 {
-    encoder_data_dir_LR = -encoder_get_count(ENCODER_DIR_LR);
-    encoder_data_dir_RR = -encoder_get_count(ENCODER_DIR_RR);
+    /* 编码器原始值：物理正转 → 计正值 */
+    encoder_data_dir_LR = encoder_get_count(ENCODER_DIR_LR);
+    encoder_data_dir_RR = encoder_get_count(ENCODER_DIR_RR);
 
     encoder_clear_count(ENCODER_DIR_LR);
     encoder_clear_count(ENCODER_DIR_RR);
 
     if (driving == 1)
     {
-        motor1_pid.Actual = encoder_data_dir_LR;
+        /* motor1 反向安装（负 Target → 前进），Actual 需取负以匹配 Target 符号 */
+        motor1_pid.Actual = -encoder_data_dir_LR;
         PID_Update(&motor1_pid);
         motor1_control(motor1_pid.Out);
 
+        /* motor2 正常安装（正 Target → 前进） */
         motor2_pid.Actual = encoder_data_dir_RR;
         PID_Update(&motor2_pid);
         motor2_control(motor2_pid.Out);
