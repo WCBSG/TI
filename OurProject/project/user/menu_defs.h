@@ -13,9 +13,8 @@
 
 extern MenuPage page_main;        /* 主菜单页 */
 extern MenuPage page_launch;      /* Launch 确认页 */
-extern MenuPage page_motor_debug; /* 电机调试页 */
+extern MenuPage page_ir_test;     /* IR 传感器测试页 */
 extern uint8   launch_triggered;  /* cb_launch 回调置位 → main 退出菜单循环 */
-
-void MenuDefs_Init(void);         /* 预留 */
+extern int16   base_speed;        /* 全局基速（菜单配置，main.c 发车时读取） */
 
 #endif

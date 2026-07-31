@@ -171,10 +171,10 @@ void Menu_Cancel(void)
     }
 }
 
-/** Key5: 子页→回主菜单(清理栈) / 主菜单→由调用方处理 Launch */
+/** Key5: 子页→回主菜单 / 主菜单→由调用方处理 Launch */
 void Menu_Home(MenuPage *main_page)
 {
-    int8 i, main_idx, j, count;
+    int8 i;
 
     if (!main_page || top < 0) return;
     if (stack[top]->editing) return;          /* 编辑态禁用 */
@@ -183,45 +183,23 @@ void Menu_Home(MenuPage *main_page)
     if (stack[top] == main_page) return;
 
     /*
-     * 清理栈：找到离栈顶最近的主菜单，清除其下方所有元素。
-     * 例: [0,2,3,0,1,7,9] → 从栈顶向下找到第二个0(索引3)
-     *     → 清除索引0/1/2 → [0,1,7,9] → Push(0) → [0,1,7,9,0]
+     * 从栈顶向下查找主菜单：
+     *   找到 → 截断栈到主菜单之下（移除主菜单及上方所有页）
+     *   未找到 → 保持栈不变，直接在顶部 Push 主菜单
+     *
+     * 例: [A, B, main, X, Y] → 找到 main@idx=2 → top=1 → Push(main) → [A, B, main]
+     * 例: [A, B, C] (无 main) → top=2 不变 → Push(main) → [A, B, C, main]
      */
-    main_idx = -1;
     for (i = top; i >= 0; i--)
     {
         if (stack[i] == main_page)
         {
-            main_idx = i;
+            top = (int8)(i - 1);  /* 断点：移除 main 及之后所有页 */
             break;
         }
     }
 
-    if (main_idx >= 0)
-    {
-        count = (int8)(top - main_idx);
-        for (j = 0; j <= count; j++)
-            stack[j] = stack[(int8)(main_idx + j)];
-        top = count;
-    }
-
-    /*
-     * 修复：栈满时 Push 会静默失败。
-     * 若清理后栈仍满，用主菜单直接覆盖栈顶（等价于 pop + push）。
-     */
-    if (top >= STACK_MAX - 1)
-    {
-        top = STACK_MAX - 1;
-        stack[top] = main_page;
-        main_page->cursor  = 0;
-        main_page->scroll  = 0;
-        main_page->editing = 0;
-        Menu_Draw();
-    }
-    else
-    {
-        Menu_Push(main_page);
-    }
+    Menu_Push(main_page);
 }
 
 /* ── 其他查询 ── */

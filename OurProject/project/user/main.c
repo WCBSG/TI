@@ -60,103 +60,115 @@ void main(void)
             }
         }
 
-        Motor_DebugSync();  /* 调试页：占空比 → 电机；离开自动停止 */
+        IRPHOTO_TestSync();  /* IR 测试页：实时绘制传感器状态 */
         system_delay_ms(10);
     }
 
     /* ═══════════════════════════════════════════════════════════
-     * 行驶阶段：任务 2 — 纯巡线一圈（无球控制）
-     *
-     * 阶段：
-     *   1. 计时巡线（IR 加权偏差 → steer PID → 差速转向）
-     *   2. 停车 + 显示结果
+     * 行驶阶段 — 状态机：
+     *   FOLLOW   → 巡线（弯道自适应减速）
+     *   HALT     → 脱轨/停车 → 刹车 → 显示结果
+     *   DONE     → 永久停车
      * ════════════════════════════════════════════════════════════ */
 
-    WcTFT_Clear(RGB565_BLACK);
-    WcTFT_SetColor(RGB565_WHITE, RGB565_BLACK);
-    WcTFT_PrintCenter(0, "TASK 2");
-
     {
-        int16 base_speed = motor1_pid.Target;  /* 绝对基速（正值，从菜单继承） */
+        typedef enum { PHASE_FOLLOW, PHASE_HALT, PHASE_DONE } DrivePhase;
+
+        uint16 tick       = 0;
+        uint8  display_cd = 0;
+        uint8  off_track  = 0;  /* 1=脱轨失败 */
+        DrivePhase phase  = PHASE_FOLLOW;
+
+        WcTFT_Clear(RGB565_BLACK);
+        WcTFT_SetColor(RGB565_WHITE, RGB565_BLACK);
+        WcTFT_PrintCenter(0, "TASK 2");
 
         /* 左后轮（motor1）反向安装：负 Target → 前进 */
         motor1_pid.Target = -base_speed;
         motor2_pid.Target = base_speed;
-    }
-    driving = 1;
+        driving = 1;
 
-    {
-        int16  base_speed = motor2_pid.Target;  /* 绝对基速 */
-        uint16 tick       = 0;  /* 10ms 滴答计数器 */
-        uint8  off_track  = 0;  /* 1=冲出赛道失败 */
-        uint8  display_cd = 0;  /* 显示倒计时（每 10 tick = 100ms 刷新） */
-
-        /* ── 阶段 1：盲开逃逸启停线（调试时注释掉） ── */
-        //while (1)
-        //{
-        //    IRPHOTO_Read(s);
-        //    if (is_stop(s) == 0) break;  /* 完全离开启停线 */
-        //    system_delay_ms(10);
-        //    tick++;
-        //}
-
-        /* ── 计时巡线 ── */
-        while (1)
+        while (phase != PHASE_DONE)
         {
             IRPHOTO_Read(s);
 
+            if (phase == PHASE_FOLLOW)
             {
                 uint8 reason = is_stop(s);
-                //if (reason == 2)      { off_track = 1; break; }  /* 冲出赛道 */
-                //if (reason == 1)      { off_track = 0; break; }  /* 正常停车 */
-                (void)reason;  /* 暂不使用 */
+                int   err    = calc_error(s);
+                int   abs_err = (err < 0) ? -err : err;
+                int16 spd;
+
+                /* 脱轨 → 停车 */
+                if (reason == 2)
+                {
+                    off_track = 1;
+                    phase     = PHASE_HALT;
+                }
+                /* 停车线到达（调试：关闭） */
+                //if (reason == 1 && tick > 100) phase = PHASE_HALT;
+
+                if (phase == PHASE_FOLLOW)
+                {
+                    /* 弯道自适应减速：|error|>4→70%, >2→85%, else 100% */
+                    if      (abs_err <= 2) spd = base_speed;
+                    else if (abs_err <= 4) spd = (int16)(base_speed * 85 / 100);
+                    else                   spd = (int16)(base_speed * 70 / 100);
+
+                    steer_set(err, spd);
+                }
             }
 
-            steer_set(calc_error(s), base_speed);
+            if (phase == PHASE_HALT)
+            {
+                motor1_control(0);
+                motor2_control(0);
+                driving = 0;
+                phase   = PHASE_DONE;
+            }
+
             system_delay_ms(10);
             tick++;
             display_cd++;
 
-            if (display_cd >= 10)  /* 每 100ms 刷新显示 */
+            /* 每 100ms 刷新显示 */
+            if (display_cd >= 10 && phase == PHASE_FOLLOW)
             {
-                display_cd = 0;
-                {
-                    uint16 sec   = tick / 100;
-                    uint16 tenth = (tick % 100) / 10;
-                    int8   err   = (int8)calc_error(s);
+                uint16 sec   = tick / 100;
+                uint16 tenth = (tick % 100) / 10;
 
-                    WcTFT_SetColor(RGB565_WHITE, RGB565_BLACK);
-                    WcTFT_PrintAt(0, 32, "T:    . s  E:     ");
-                    WcTFT_PrintIntAt(16, 32, (int32)sec);
-                    WcTFT_PrintAt(24, 32, ".");
-                    WcTFT_PrintIntAt(32, 32, (int32)tenth);
-                    WcTFT_PrintIntAt(80, 32, (int32)err);
-                }
+                display_cd = 0;
+                WcTFT_SetColor(RGB565_WHITE, RGB565_BLACK);
+                WcTFT_PrintAt(0, 32, "T:    .  s  E:     ");
+                WcTFT_PrintIntAt(16, 32, (int32)sec);
+                WcTFT_PrintAt(24, 32, ".");
+                WcTFT_PrintIntAt(32, 32, (int32)tenth);
+                WcTFT_PrintIntAt(80, 32, (int32)calc_error(s));
+                /* 电机诊断 */
+                WcTFT_PrintAt(0, 48, "M1:");
+                WcTFT_PrintIntAt(24, 48, motor1_pid.Out);
+                WcTFT_PrintAt(64, 48, "M2:");
+                WcTFT_PrintIntAt(88, 48, motor2_pid.Out);
             }
         }
 
-        /* ── 阶段 1：停电机 ── */
-        motor1_control(0);
-        motor2_control(0);
-        driving = 0;
-
-        /* ── 阶段 2：显示结果 ── */
-        if (off_track)
-        {
-            WcTFT_Clear(RGB565_RED);
-            WcTFT_SetColor(RGB565_WHITE, RGB565_RED);
-            WcTFT_PrintCenter(3, "OFF TRACK");
-            WcTFT_PrintCenter(4, "FAILED");
-        }
-        else
+        /* ── 显示结果 ── */
         {
             uint16 sec   = tick / 100;
             uint16 tenth = (tick % 100) / 10;
+            uint16 color = off_track ? RGB565_RED : RGB565_GREEN;
 
-            WcTFT_Clear(RGB565_GREEN);
-            WcTFT_SetColor(RGB565_WHITE, RGB565_GREEN);
-            WcTFT_PrintCenter(2, "TASK 2 OK");
-
+            WcTFT_Clear(color);
+            WcTFT_SetColor(RGB565_WHITE, color);
+            if (off_track)
+            {
+                WcTFT_PrintCenter(3, "OFF TRACK");
+                WcTFT_PrintCenter(4, "FAILED");
+            }
+            else
+            {
+                WcTFT_PrintCenter(2, "TASK 2 OK");
+            }
             WcTFT_PrintAt(24, 64, "T:");
             WcTFT_PrintIntAt(40, 64, (int32)sec);
             WcTFT_PrintAt(48, 64, ".");

@@ -69,60 +69,48 @@ static uint8 safe_str(uint16 x, uint16 y, const char *str)
     return safe_str_core(x, y, str, maxc);
 }
 
+/* ── 内部：int8[] → char[] 转换（zf_sprintf 返回 int8*） ── */
+static void copy_int8_str(char *dst, const int8 *src, uint8 maxlen)
+{
+    uint8 i;
+    for (i = 0; i < maxlen && src[i] != '\0'; i++)
+        dst[i] = (char)src[i];
+    dst[i] = '\0';
+}
+
 /* ── 内部格式化辅助 ── */
 static void fmt_int(int32 val, char *buf)
 {
     int8 tmp[12];
     zf_sprintf(tmp, (const int8 *)"%d", val);
-    {
-        uint8 i;
-        for (i = 0; i < 12 && tmp[i] != '\0'; i++)
-            buf[i] = (char)tmp[i];
-        buf[i] = '\0';
-    }
+    copy_int8_str(buf, tmp, 12);
 }
 
 static void fmt_uint(uint32 val, char *buf)
 {
     int8 tmp[12];
     zf_sprintf(tmp, (const int8 *)"%u", val);
-    {
-        uint8 i;
-        for (i = 0; i < 12 && tmp[i] != '\0'; i++)
-            buf[i] = (char)tmp[i];
-        buf[i] = '\0';
-    }
+    copy_int8_str(buf, tmp, 12);
 }
 
 static void fmt_float(double val, uint8 decimals, char *buf)
 {
     int8 tmp[24];
     int8 fmt[8];
-    /* 构建格式字符串 "%.Nf" */
     fmt[0] = '%';
     fmt[1] = '.';
     fmt[2] = (int8)('0' + decimals);
     fmt[3] = 'f';
     fmt[4] = '\0';
     zf_sprintf(tmp, fmt, val);
-    {
-        uint8 i;
-        for (i = 0; i < 24 && tmp[i] != '\0'; i++)
-            buf[i] = (char)tmp[i];
-        buf[i] = '\0';
-    }
+    copy_int8_str(buf, tmp, 24);
 }
 
 static void fmt_hex(uint32 val, char *buf)
 {
     int8 tmp[12];
     zf_sprintf(tmp, (const int8 *)"0x%X", val);
-    {
-        uint8 i;
-        for (i = 0; i < 12 && tmp[i] != '\0'; i++)
-            buf[i] = (char)tmp[i];
-        buf[i] = '\0';
-    }
+    copy_int8_str(buf, tmp, 12);
 }
 
 /* ═══════════════════════════════════════════════════════════

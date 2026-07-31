@@ -25,7 +25,7 @@ void steer_init(void)
 
 void steer_set(int error, int base_speed)
 {
-    int16 left_target, right_target;
+    int16 left_target, right_target, rev_limit;
 
     steer_pid.Actual  = error;
     PID_Update(&steer_pid);
@@ -33,11 +33,17 @@ void steer_set(int error, int base_speed)
     left_target  = base_speed - steer_pid.Out;
     right_target = base_speed + steer_pid.Out;
 
-    /* 钳位：轮子最多停转（0），禁止反转 */
-    if (left_target  < 0) left_target  = 0;
-    if (right_target < 0) right_target = 0;
+    /*
+     * 钳位：上限 base_speed，下限 -base_speed/3（允许内侧轮适度反转，
+     * 改善 0.5m 半径弯道跟踪）。低速时反转才有意义。
+     */
+    rev_limit = (int16)(-(base_speed / 3));
+    if (left_target  > base_speed) left_target  = (int16)base_speed;
+    if (right_target > base_speed) right_target = (int16)base_speed;
+    if (left_target  < rev_limit)  left_target  = rev_limit;
+    if (right_target < rev_limit)  right_target = rev_limit;
 
-    /* 左后轮（motor1）反向安装：负 duty → 前进 */
+    /* motor1 反向安装（负 Target → 前进），motor2 正常安装 */
     motor1_pid.Target = -left_target;
     motor2_pid.Target = right_target;
 }

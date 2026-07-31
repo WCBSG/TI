@@ -4,7 +4,6 @@
 #include "zf_common_headfile.h"
 #include "PID.h"
 
-extern int16 encoder_data_dir_LR, encoder_data_dir_RR;
 extern volatile uint8 driving;
 
 
@@ -25,13 +24,10 @@ extern volatile uint8 driving;
 #define ENCODER_DIR_PULSE_RR            (PWMC_ENCODER_CH1P_P40)     // PULSE 引脚
 #define ENCODER_DIR_DIR_RR              (PWMC_ENCODER_CH2P_P42)     // DIR 引脚
 
-extern int16 motor1_duty, motor2_duty;   /* 调试用：手动占空比 */
-
 void Motor_Init(void);
 void encoder_init(void);
 void motor1_control(int16 motor_duty);
 void motor2_control(int16 motor_duty);
 void pit_handler(void);
-void Motor_DebugSync(void);              /* 调试页同步：占空比 → 电机输出 */
 
 #endif

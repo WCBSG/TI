@@ -1,10 +1,10 @@
 #include "IRPHOTO.h"
 #include "WcTFT180.h"
 
-// 八路红外循迹传感器引脚 (P0.0 ~ P0.7)
+// 八路红外循迹传感器引脚
 static const gpio_pin_enum ir_pins[8] = {
-    IO_P00, IO_P01, IO_P02, IO_P03,
-    IO_P04, IO_P05, IO_P06, IO_P07,
+    IO_P87, IO_P85, IO_P36, IO_P34,
+    IO_PA1, IO_PA3, IO_PA5, IO_PA7,
 };
 
 void IRPHOTO_Init(void)
@@ -78,4 +78,95 @@ void IRPHOTO_Read(int s[8])
     int i;
     for (i = 0; i < 8; i++)
         s[i] = !gpio_get_level(ir_pins[i]);  // 黑=1, 白=0
+}
+
+/* ═══════════════════════════════════════════════════════════
+ * IR 测试页同步 — 4×2 大块可视化
+ *
+ * 布局 (128×160 PORTRAIT)：
+ *   Row 0 (y=0):   标题栏（Menu_Draw 绘制）
+ *   Row 1 (y=20):  S0  S1  S2  S3    ← 编号
+ *   Row 2 (y=28): [██][  ][██][  ]   ← 28×28 方块（白底=无线，黑块=检测到线）
+ *   Row 3 (y=62):  S4  S5  S6  S7
+ *   Row 4 (y=70): [  ][██][  ][██]
+ *   Row 5 (y=108): Err: -7
+ *   Row 6 (y=124): Stop: 0 (run)
+ * ════════════════════════════════════════════════════════════ */
+
+#include "WcMenu.h"
+#include "menu_defs.h"
+
+#define BLOCK_W   28
+#define BLOCK_H   28
+#define ROW1_Y    20   /* 第一行编号 y */
+#define ROW1_BY   28   /* 第一行方块 y */
+#define ROW2_Y    62   /* 第二行编号 y */
+#define ROW2_BY   70   /* 第二行方块 y */
+
+/* 4 个方块的 X 起始坐标 (28px 宽 + 3px 间距) */
+static const uint8 block_x[4] = { 4, 35, 66, 97 };
+
+void IRPHOTO_TestSync(void)
+{
+    int s[8];
+    int i, err, stop;
+
+    if (!Menu_IsTop(&page_ir_test)) return;
+
+    IRPHOTO_Read(s);
+    err  = calc_error(s);
+    stop = is_stop(s);
+
+    /* ── 上半行：传感器 0-3 ── */
+    WcTFT_SetColor(RGB565_WHITE, RGB565_BLACK);
+    for (i = 0; i < 4; i++)
+    {
+        /* 编号 */
+        WcTFT_PrintIntAt((uint8)(block_x[i] + 10), ROW1_Y, (int32)i);
+        /* 方块 */
+        if (s[i])
+        {
+            WcTFT_FillRect(block_x[i], ROW1_BY, BLOCK_W, BLOCK_H, RGB565_WHITE);
+            /* 黑块居中显示"1" */
+            WcTFT_SetColor(RGB565_BLACK, RGB565_WHITE);
+            WcTFT_PrintIntAt((uint8)(block_x[i] + 10), (uint8)(ROW1_BY + 6), 1);
+        }
+        else
+        {
+            WcTFT_SetColor(RGB565_WHITE, RGB565_BLACK);
+            WcTFT_DrawRect(block_x[i], ROW1_BY, BLOCK_W, BLOCK_H, RGB565_WHITE);
+            WcTFT_PrintIntAt((uint8)(block_x[i] + 10), (uint8)(ROW1_BY + 6), 0);
+        }
+    }
+
+    /* ── 下半行：传感器 4-7 ── */
+    WcTFT_SetColor(RGB565_WHITE, RGB565_BLACK);
+    for (i = 4; i < 8; i++)
+    {
+        WcTFT_PrintIntAt((uint8)(block_x[i - 4] + 10), ROW2_Y, (int32)i);
+        if (s[i])
+        {
+            WcTFT_FillRect(block_x[i - 4], ROW2_BY, BLOCK_W, BLOCK_H, RGB565_WHITE);
+            WcTFT_SetColor(RGB565_BLACK, RGB565_WHITE);
+            WcTFT_PrintIntAt((uint8)(block_x[i - 4] + 10), (uint8)(ROW2_BY + 6), 1);
+        }
+        else
+        {
+            WcTFT_SetColor(RGB565_WHITE, RGB565_BLACK);
+            WcTFT_DrawRect(block_x[i - 4], ROW2_BY, BLOCK_W, BLOCK_H, RGB565_WHITE);
+            WcTFT_PrintIntAt((uint8)(block_x[i - 4] + 10), (uint8)(ROW2_BY + 6), 0);
+        }
+    }
+
+    /* ── 底部信息 ── */
+    WcTFT_SetColor(RGB565_WHITE, RGB565_BLACK);
+    WcTFT_PrintAt(0, 108, "Err:");
+    WcTFT_PrintIntAt(32, 108, (int32)err);
+
+    WcTFT_PrintAt(0, 124, "Stop:");
+    WcTFT_PrintIntAt(40, 124, (int32)stop);
+    {
+        const char *desc = (stop == 0) ? "(run)" : (stop == 1) ? "(line)" : "(off)";
+        WcTFT_PrintAt(56, 124, desc);
+    }
 }
