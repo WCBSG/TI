@@ -950,14 +950,14 @@
               <FilePath>..\user\config.h</FilePath>
             </File>
             <File>
-              <FileName>DRV8701.c</FileName>
+              <FileName>menu_defs.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\user\DRV8701.c</FilePath>
+              <FilePath>..\user\menu_defs.c</FilePath>
             </File>
             <File>
-              <FileName>DRV8701.h</FileName>
+              <FileName>menu_defs.h</FileName>
               <FileType>5</FileType>
-              <FilePath>..\user\DRV8701.h</FilePath>
+              <FilePath>..\user\menu_defs.h</FilePath>
             </File>
           </Files>
         </Group>

@@ -12,7 +12,7 @@ void PID_Update(PID_t *p)
 	p->Error0 = p->Target - p->Actual;
 
 	p->Out += p->Kp * (p->Error0-p->Error1)
-		   + (p->Ki/10.0) * p->Error0
+		   + ((int32)p->Ki * p->Error0) / 10
 		   + p->Kd * (p->Error0 - 2*p->Error1+p->Error2);
 
 	if (p->Out > p->OutMax) {p->Out = p->OutMax;}

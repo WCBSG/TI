@@ -15,12 +15,10 @@
 
 /* ── 常量 ── */
 #define LINE_BUF_SIZE   16      /* "B,320\n" = 7 字节，16 足够 */
-#define BALL_TIMEOUT    200     /* 超时 ms，超过此时间无数据则置 invalid */
 
 /* ── 接收状态 ── */
 static char  rx_line[LINE_BUF_SIZE];
 static uint8 rx_idx;
-static uint8 data_timeout;      /* 倒计时计数器（在定时器中递减） */
 
 /* ── 全局状态 ── */
 int16 proto_ball_x      = 0;
@@ -48,12 +46,10 @@ static void parse_line(const char *line)
 
         proto_ball_x      = neg ? (int16)(-val) : val;
         proto_ball_valid  = 1;
-        data_timeout      = BALL_TIMEOUT;
     }
     else if (line[0] == 'N' || line[0] == 'n')
     {
         proto_ball_valid = 0;
-        data_timeout      = BALL_TIMEOUT;  /* 收到 N 也算数据活跃 */
     }
     /* 其他：忽略（可能是噪声或未来扩展） */
 }
@@ -95,7 +91,6 @@ static void rx_callback(uint8 dat)
 void Protocol_Init(void)
 {
     rx_idx       = 0;
-    data_timeout = 0;
 
     proto_ball_x     = 0;
     proto_ball_valid = 0;
@@ -123,4 +118,16 @@ void Protocol_SendStop(void)
 void Protocol_SendCal(void)
 {
     uart_write_string(UART_3, "CAL\n");
+}
+
+/** 读取最新球位置并清空标志位（防止读到重复数据） */
+uint8 Protocol_ReadBall(int16 *x)
+{
+    if (proto_ball_valid)
+    {
+        if (x) *x = proto_ball_x;
+        proto_ball_valid = 0;   /* 消费后清零，避免下次读到相同数据 */
+        return 1;
+    }
+    return 0;
 }

@@ -1,4 +1,5 @@
 #include "IRPHOTO.h"
+#include "WcTFT180.h"
 
 // 八路红外循迹传感器引脚 (P0.0 ~ P0.7)
 static const gpio_pin_enum ir_pins[8] = {
@@ -37,12 +38,12 @@ void IRPHOTO_Display(int s[8])
     int i;
     for (i = 0; i < 8; i++)
     {
-        tft180_show_uint8(10 + i * 8, 50, s[i]);   // 横向排列 8 个值 (0/1)
+        WcTFT_PrintIntAt((uint8)(10 + i * 8), 50, s[i]);  // 横向排列 8 个值 (0/1)
     }
-    tft180_show_int8(10, 70, calc_error(s));        // 下一行显示加权偏差
+    WcTFT_PrintIntAt(10, 70, calc_error(s));               // 下一行显示加权偏差
 }
 
-// 停车标志检测：≥3 个连续传感器同时检测到黑线
+// 停车标志检测：≥4 个连续传感器同时检测到黑线
 // 附加保护：全部 8 路未检测到黑线 → 视为冲出赛道，返回 2（区别于正常停车 1）
 int is_stop(int s[8])
 {

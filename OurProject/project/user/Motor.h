@@ -4,31 +4,34 @@
 #include "zf_common_headfile.h"
 #include "PID.h"
 
-extern int16 encoder_data_dir_1, encoder_data_dir_2;
-extern uint8 driving;
+extern int16 encoder_data_dir_LR, encoder_data_dir_RR;
+extern volatile uint8 driving;
 
 
-#define PIT_ENCODER             (TIM1_PIT)  // ±àÂëÆ÷ PIT ¶¨Ê±Æ÷ ÓÃÓÚ¸üĞÂ PID
+#define PIT_ENCODER             (TIM1_PIT)  // å®šæ—¶å™¨ PIT é€šé“ï¼Œç”¨äºæ›´æ–° PID
 
-#define DIR_1               ( IO_P74 )//Ôİ¶¨×óÂÖ·½Ïò
-#define PWM_1               ( PWMB_CH2_P75 )//Ôİ¶¨×óÂÖPWM
-                              
-#define DIR_2               ( IO_P76 )//Ôİ¶¨ÓÒÂÖ·½Ïò
-#define PWM_2               ( PWMB_CH4_P77 )//Ôİ¶¨ÓÒÂÖPWM
+#define PWM_1               ( PWMB_CH2_P75 )//å·¦åè½®é€Ÿåº¦
+#define DIR_1               ( PWMB_CH1_P74 )//å·¦åè½®è½¬å‘
+
+#define PWM_2               ( PWMB_CH4_P77 )//å³åè½®é€Ÿåº¦
+#define DIR_2               ( PWMB_CH3_P76 )//å³åè½®è½¬å‘
 
 
-#define ENCODER_DIR_1                 	(PWMA_ENCODER)              
-#define ENCODER_DIR_PULSE_1            	(PWMA_ENCODER_CH1P_P60)     
-#define ENCODER_DIR_DIR_1              	(PWMA_ENCODER_CH2P_P62)     
+#define ENCODER_DIR_LR                  (PWMA_ENCODER)              // å·¦åè½®ç¼–ç å™¨
+#define ENCODER_DIR_PULSE_LR            (PWMA_ENCODER_CH1P_P60)     // PULSE å¼•è„š
+#define ENCODER_DIR_DIR_LR              (PWMA_ENCODER_CH2P_P62)     // DIR å¼•è„š
 
-#define ENCODER_DIR_2                 	(PWMC_ENCODER)              
-#define ENCODER_DIR_PULSE_2       		(PWMC_ENCODER_CH1P_P40)     
-#define ENCODER_DIR_DIR_2           	(PWMC_ENCODER_CH2P_P42)     
+#define ENCODER_DIR_RR                  (PWMC_ENCODER)              // å³åè½®ç¼–ç å™¨
+#define ENCODER_DIR_PULSE_RR            (PWMC_ENCODER_CH1P_P40)     // PULSE å¼•è„š
+#define ENCODER_DIR_DIR_RR              (PWMC_ENCODER_CH2P_P42)     // DIR å¼•è„š
+
+extern int16 motor1_duty, motor2_duty;   /* è°ƒè¯•ç”¨ï¼šæ‰‹åŠ¨å ç©ºæ¯” */
 
 void Motor_Init(void);
 void encoder_init(void);
 void motor1_control(int16 motor_duty);
 void motor2_control(int16 motor_duty);
 void pit_handler(void);
+void Motor_DebugSync(void);              /* è°ƒè¯•é¡µåŒæ­¥ï¼šå ç©ºæ¯” â†’ ç”µæœºè¾“å‡º */
 
 #endif

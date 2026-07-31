@@ -235,13 +235,11 @@ uint8 Menu_IsTop(MenuPage *page) { return (page && stack_top() == page) ? 1 : 0;
 
 /* ── 绘制 ── */
 
-/** 用空格填充矩形行（比 FillRect 快 ~8×） */
+/** 用空格清整行：16 空格 = 128px(PORTAIT)；WcTFT_PrintAt 自动截断到 x_max */
 static void fill_row(uint8 y, uint16 fg, uint16 bg)
 {
-    uint8 c;
     WcTFT_SetColor(fg, bg);
-    for (c = 0; c < tft180_x_max; c += 64)
-        WcTFT_PrintAt(c, y, "        ");  /* 8 个空格 × 8px = 64px */
+    WcTFT_PrintAt(0, y, "                                ");  /* 32 空格，WcTFT 自动截断 */
 }
 
 void Menu_Draw(void)
@@ -294,8 +292,10 @@ void Menu_Draw(void)
 
             if (it->value)
             {
-                WcTFT_PrintAt(48, y, ":");
-                WcTFT_PrintIntAt(56, y, *it->value);
+                /* 原生 tft180 显示 — 固定 6 字符宽度，像素完美无残留 */
+                tft180_set_color(fg, bg);
+                tft180_show_string(48, y, ":");
+                tft180_show_int16(56, y, *it->value);
             }
         }
     }

@@ -15,8 +15,9 @@
 * 使用：
 *   Protocol_Init();
 *   // 在 PID 循环中读取:
-*   if (proto_ball_valid) {
-*       error = proto_ball_x - target_x;
+*   int16 ball_x;
+*   if (Protocol_ReadBall(&ball_x)) {
+*       error = ball_x - target_x;
 *   }
 ********************************************************************************************************************/
 
@@ -27,12 +28,13 @@
 
 /* ── 协议状态（全局可读） ── */
 extern int16 proto_ball_x;       /* 最新球 X 坐标（像素），仅 proto_ball_valid=1 时有效 */
-extern uint8 proto_ball_valid;   /* 1=有有效球数据，0=未检测到/超时 */
+extern uint8 proto_ball_valid;   /* 1=有有效球数据，0=未检测到 */
 
 /* ── 初始化和控制 ── */
 void Protocol_Init(void);        /* 初始化 UART3 + DMA 接收 */
 void Protocol_SendStart(void);   /* 发送 START 命令给 OpenART */
 void Protocol_SendStop(void);    /* 发送 STOP 命令 */
 void Protocol_SendCal(void);     /* 发送 CAL 命令 */
+uint8 Protocol_ReadBall(int16 *x); /* 读取最新球 X 坐标并消费（返回 1=有效, 0=无新数据） */
 
 #endif
