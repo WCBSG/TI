@@ -45,6 +45,7 @@ typedef struct {
 /* ── 构造宏 ── */
 #define MENU_ITEM(_id, _name, _cb)              { (_id), (_name), (_cb), NULL, 0,     0,      0 }
 #define MENU_ITEM_VAL(_id, _name, _val_ptr, _st) { (_id), (_name), NULL, (_val_ptr), (_st), -32768, 32767 }
+#define MENU_ITEM_VAL_RANGE(_id, _name, _val_ptr, _st, _min, _max) { (_id), (_name), NULL, (_val_ptr), (_st), (_min), (_max) }
 #define MENU_ITEM_BOOL(_id, _name, _val_ptr)      { (_id), (_name), NULL, (_val_ptr), 1,     0,      1 }
 #define MENU_PAGE(_title, _items, _cnt)          { (_title), (_items), (_cnt), 0, 0, 0, 0 }
 

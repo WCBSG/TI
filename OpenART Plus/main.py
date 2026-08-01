@@ -26,7 +26,6 @@ from machine import UART
 
 MODEL_PATH  = '/sd/yolo3_iou_smartcar_final_with_post_processing.tflite'
 SCORE_MIN   = 0.70       # 置信度阈值
-SCALE       = 1.0        # 推理缩放 (裁剪后已很小，无需再缩；嫌慢可改 0.75)
 
 W, H        = 320, 240    # 暂时全帧 — 调试裁剪区域
 CX          = W // 2       # 160
@@ -106,7 +105,7 @@ def main():
         img = sensor.snapshot()
 
         # 缩放推理（缩小图像加速）
-        img_small = img.copy(SCALE, 1.0)
+        img_small = img.copy(roi=(0, 80, 320, 80))
 
         best_cx   = 0
         best_score = 0.0
@@ -141,6 +140,12 @@ def main():
         # ── 裁剪区域指示线 ──
         img.draw_line(0, CROP_Y1, W-1, CROP_Y1, color=(255,255,0), thickness=1)  # 上边界
         img.draw_line(0, CROP_Y2, W-1, CROP_Y2, color=(255,255,0), thickness=1)  # 下边界
+
+        img.draw_line(W//2, 0, W//2, H-1, color=(255,0,0), thickness=1) #竖中线
+        img.draw_line(0, H//2, W-1, H//2, color=(0,0,255), thickness=1) #横中线
+        img.draw_line(0, H//2-32, W-1, H//2-32, color=(0,0,255), thickness=1)
+        img.draw_line(0, H//2-5, W-1, H//2-5, color=(0,0,255), thickness=1)
+
         img.draw_string(2, CROP_Y1-14, "crop y=%d" % CROP_Y1, color=(255,255,0), scale=1)
         img.draw_string(2, CROP_Y2+2,  "crop y=%d" % CROP_Y2, color=(255,255,0), scale=1)
 

@@ -1,7 +1,7 @@
 #include "Motor.h"
 
-static int16 encoder_lr, encoder_rr;  /* PIT 中断内使用，外部不可见 */
-volatile uint8 driving = 0;
+static int16 encoder_lr, encoder_rr;  /* PIT 中断内采样，供诊断显示 */
+volatile uint32 pit_tick = 0;         /* 5ms 硬件时基 */
 
 void Motor_Init(void)
 {
@@ -35,23 +35,18 @@ static void motor_control(gpio_pin_enum dir_pin, pwm_channel_enum pwm_ch, int16 
 void motor1_control(int16 motor_duty) { motor_control(DIR_1, PWM_1, motor_duty); }
 void motor2_control(int16 motor_duty) { motor_control(DIR_2, PWM_2, motor_duty); }
 
+int16 motor_get_encoder_lr(void) { return encoder_lr; }
+int16 motor_get_encoder_rr(void) { return encoder_rr; }
+
+/*
+ * PIT 5ms 中断：硬件计时 + 编码器采样。
+ * 已删除双电机速度闭环（改差速开环），编码器仅用于诊断显示。
+ */
 void pit_handler(void)
 {
+    pit_tick++;
     encoder_lr = encoder_get_count(ENCODER_DIR_LR);
     encoder_rr = encoder_get_count(ENCODER_DIR_RR);
     encoder_clear_count(ENCODER_DIR_LR);
     encoder_clear_count(ENCODER_DIR_RR);
-
-    if (driving == 1)
-    {
-        /* motor1 反向安装（负 Target → 前进），Actual 取负匹配 Target 符号 */
-        motor1_pid.Actual = -encoder_lr;
-        PID_Update(&motor1_pid);
-        motor1_control(motor1_pid.Out);
-
-        /* motor2 正常安装（正 Target → 前进） */
-        motor2_pid.Actual = encoder_rr;
-        PID_Update(&motor2_pid);
-        motor2_control(motor2_pid.Out);
-    }
 }
