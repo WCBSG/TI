@@ -7,6 +7,8 @@
 #include "KEY.h"
 #include "config.h"
 
+#include "protocol.h"
+
 
 /* ═══════════════════════════════════════════════════════════ */
 void main(void)
@@ -21,6 +23,8 @@ void main(void)
     button_init();
     Motor_Init();
     encoder_init();
+
+    Protocol_Init();
 
     /* 配置加载必须先于任何消费 flash_buff 的初始化，否则持久化参数不生效 */
     config_load();
@@ -61,7 +65,8 @@ void main(void)
             }
         }
 
-        IRPHOTO_TestSync();  /* IR 测试页：实时绘制传感器状态 */
+        Protocol_ReadBall(&proto_ball_x);  /* 消费最新球 X 坐标，更新 proto_ball_valid */
+
         system_delay_ms(10);
     }
 

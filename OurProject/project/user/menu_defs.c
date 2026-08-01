@@ -12,6 +12,7 @@
 
 #include "menu_defs.h"
 #include "control.h"
+#include "protocol.h"
 
 
 /* ═══════════════════════════════════════════════════════════
@@ -32,10 +33,19 @@ static MenuPage page_steer = MENU_PAGE("Steer PID", steer_items, 5);
 static const MenuItem speed_items[] = {
     MENU_ITEM_VAL_RANGE(1, "Spd", &base_speed, 100, 0, 4000),
 };
-static MenuPage page_speed = MENU_PAGE("Base Speed", speed_items, 1);
 
-/* ── IR Test 页（实时显示 8 路传感器值，count=0 无菜单项，由 IRPHOTO_TestSync 绘制） ── */
-MenuPage page_ir_test = MENU_PAGE("IR Sensors", NULL, 0);
+static const MenuItem protocol_items[] = {
+    MENU_ITEM(1, "Send START", Protocol_SendStart),
+    MENU_ITEM(2, "Send STOP",  Protocol_SendStop),
+    MENU_ITEM(3, "Send CAL",   Protocol_SendCal),
+
+    // 显示小球值
+    MENU_ITEM(4, "Ball X",     &proto_ball_x, 1),
+    MENU_ITEM_BOOL(5, "Ball Valid", &proto_ball_valid), 
+};
+
+static MenuPage page_speed = MENU_PAGE("Base Speed", speed_items, 1);
+static MenuPage page_protocol = MENU_PAGE("Protocol", protocol_items, 5);
 
 
 /* ═══════════════════════════════════════════════════════════
@@ -44,8 +54,7 @@ MenuPage page_ir_test = MENU_PAGE("IR Sensors", NULL, 0);
 
 static void cb_steer(void)     { Menu_Push(&page_steer); }
 static void cb_speed(void)     { Menu_Push(&page_speed); }
-
-static void cb_ir_test(void) { Menu_Push(&page_ir_test); }
+static void cb_protocol(void)  { Menu_Push(&page_protocol); }
 
 
 /* ═══════════════════════════════════════════════════════════
@@ -70,6 +79,6 @@ MenuPage page_launch = MENU_PAGE("LAUNCH", launch_items, 1);
 static const MenuItem main_items[] = {
     MENU_ITEM(1, "Steer PID",  cb_steer),
     MENU_ITEM(2, "Base Speed", cb_speed),
-    MENU_ITEM(3, "IR Test",    cb_ir_test),
+    MENU_ITEM(3, "Protocol", cb_protocol),
 };
 MenuPage page_main = MENU_PAGE("Main Menu", main_items, 3);
