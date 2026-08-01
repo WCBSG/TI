@@ -105,7 +105,9 @@ def main():
         img = sensor.snapshot()
 
         # 缩放推理（缩小图像加速）
+        # 模型输入为 [1, 40, 160, 1] 灰度单通道，必须显式转灰度再传入
         img_small = img.copy(roi=(0, 80, 320, 80))
+        img_small.to_grayscale()
 
         best_cx   = 0
         best_score = 0.0
