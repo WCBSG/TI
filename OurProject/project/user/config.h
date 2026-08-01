@@ -3,7 +3,7 @@
 
 #include "zf_common_headfile.h"
 
-#define FLASH_SIZE 16
+#define FLASH_SIZE 32
 extern int16 flash_buff[FLASH_SIZE];
 extern int16 down_buff[FLASH_SIZE];
 

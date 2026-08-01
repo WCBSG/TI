@@ -22,7 +22,7 @@ static uint8 rx_idx;
 
 /* ── 全局状态 ── */
 int16 proto_ball_x      = 0;
-uint8 proto_ball_valid  = 0;
+int16 proto_ball_valid  = 0;
 
 /* ── 内部：解析一行 ── */
 static void parse_line(const char *line)

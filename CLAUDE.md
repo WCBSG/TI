@@ -39,6 +39,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **总分**：6 + 16 + 13 + 20 + 20 + 20 + 5 + 20 = **120 分**
 
+> **设计报告（任务 8）由其他成员负责，本项目不处理**——本仓库只交付硬件方案与代码。
+
 ### 摆杆角度控制机构（关键部件，PDF 官方名称）
 
 根据 PDF 图 2，摆杆角度控制机构是控制摆杆倾角、进而控制钢球在凹槽内滚动的核心执行部件：
@@ -154,14 +156,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | **OpenART Plus (RT117x)** | 负责所有视觉识别：从上方俯视拍摄摆杆区域，**色块识别/TFLite 检测钢球位置**，UART 输出给 STC32（**不负责显示/录像，那是 OMV-RT5 的活**） |
 | **STC32G144K246 (C251)** | 主控：通过 UART 接收 OpenART Plus 检测结果 → PID 控制 → 电机/舵机输出；USB-CDC 调试 |
 
+> **设计报告（任务 8）由其他成员负责，本项目不处理。**
+
 > **钢球不可涂色** → 需模型或灰度检测。**摄像头俯视**，色块识别/`find_blobs` 在摆杆 ROI 内识别钢球（球在水管背景上为暗色圆形，对比度高），比 TFLite 快一个数量级。**摆杆角度没有反馈**——伸缩装置无编码器，是开环控制（给多少就是多少），STC32 通过 PID 输出伸缩指令控制钢球位置。
 
 ## 目录结构
 
 ```
-OMV-RT5/              ← 图传端 MicroPython 代码（OpenMV IDE 开发）
-  main.py               ← WiFi AP MJPEG 图传（156行，精简版）
-  omv-rt-visual_module/ ← 厂商资料 V2.0（例程/固件/手册，不纳入版本控制）
+OPenMV RT5/           ← 图传端 MicroPython 代码（OpenMV IDE 开发；芯片型号 OMV-RT5）
+  main.py               ← WiFi AP MJPEG 图传（精简版，对应任务 1）
+  omv-rt-visual_module/ ← 厂商资料（例程/固件/手册，不纳入版本控制）
 
 OpenART Plus/          ← 识别端 MicroPython 代码（OpenMV IDE 开发）
   camera_openart.py    ← 主程序：TFLite 模型钢球检测 + UART 输出
@@ -171,12 +175,11 @@ OpenART Plus/          ← 识别端 MicroPython 代码（OpenMV IDE 开发）
   [例程]OpenART Plus例程/  ← 官方例程（AI模型/apriltag/基础外设/外置外设）
 
 OurProject/         ← 当前 STC32 工程（在此开发，why-456 维护）
-  libraries/           ← 库文件（从 STC32 库复制）
+  libraries/           ← 逐飞官方库（zf_common/driver/device/components）
   project/
-    WcLibraries/       ← 用户封装库（WcTFT180 安全屏幕接口等）
-    code/              ← 用户外设驱动代码
-    mdk/               ← MDK 工程文件
-    user/              ← main.c / isr.c / isr.h
+    WcLibraries/       ← 用户封装库（WcTFT180/WcMenu/protocol 等）
+    mdk/               ← MDK 工程文件（seekfree.uvproj）
+    user/              ← 应用代码：main/IRPHOTO/Motor/PID/line_ctrl/ball_ctrl/task_sched/imu_ctrl/config/menu_defs
 
 docs/                 ← 项目文档
   stc32/
@@ -199,16 +202,18 @@ _archive/              ← 存档（M0项目/K230项目/模型项目）
                            │  STC32G144K246 (C251 @ 96MHz)  │
                            │                                │
                            │  IRPHOTO.c: 加权算偏差+停车检测 │
-                           │  control.c: 差速转向            │
-                           │  Motor.c + PID.c: 编码器闭环    │
-                           │  WiFi SPI: 逐飞助手协议调试     │
+                           │  line_ctrl.c: 差速开环巡线     │
+                           │  ball_ctrl.c: 舵机球稳闭环     │
+                           │  imu_ctrl.c: 陀螺仪阻尼        │
+                           │  task_sched.c: 任务2/3/5/6框架 │
+                           │  USB-CDC: 串口调试帧           │
                            └─────────────────────────────────┘
 ```
 
 - **OMV-RT5**：WiFi AP MJPEG 图传（不参与检测，仅供操作手查看）
 - **OpenART Plus**：负责识别——色块识别/TFLite 检测钢球位置（俯视）
 - **IRPHOTO**：8 路红外光电管，加权求和计算巡线偏差 + 停车标志检测
-- **STC32**：通过 UART 接收 OpenART Plus 检测结果 → 控制 → 输出，WiFi SPI 发送调试数据到逐飞助手
+- **STC32**：通过 UART 接收 OpenART Plus 检测结果 → 差速开环/球稳闭环 → 输出，USB-CDC 串口调试帧
 
 > **注意**：OMV-RT5 仅图传，不参与识别；OpenART Plus 负责所有视觉识别。
 
@@ -222,10 +227,35 @@ _archive/              ← 存档（M0项目/K230项目/模型项目）
 
 - **VSCode 设置**：在 `.vscode/settings.json` 项目级修改，不要改用户级
 - **VSCode 导航**：`#include` 行上的文件名用 Ctrl+单击跳转；函数/宏/类型用 F12
-- **STC32 下载**：按住 P32 引脚上电进入 USB 下载模式（无需专用下载器）
+- **STC32 下载**：按住 P32 上电进入 USB 下载模式（无需专用下载器）；更推荐 **AiCube-ISP MCP 自动烧录**（见下）
 - **STC32 头文件路径**：限定在 `OurProject/libraries` 与 `OurProject/project` 内，避免多副本同名文件导致跳转歧义
 
-> **STC32 维护者：why-456**。当前代码已实现 MT9V03x 直连、OTSU 钢球检测、八路红外循迹、编码器 PID 闭环、WiFi SPI 调试。
+> **STC32 维护者：why-456**。
+
+#### AiCube-ISP MCP 自动烧录（推荐，已打通）
+
+`project/AiCube-ISP-v6.96Z.exe` 内置 **STC-MCP 服务**（`http://localhost:8051/mcp`，JSON-RPC 2.0 over HTTP POST），AI 可操控其 GUI 完成烧录：
+
+1. 启动工具 → MCP 服务自动拉起（`curl http://localhost:8051/` 返回帮助页即成功）
+2. `tools/call(list_windows)` 发现主窗口 hwnd → `list_controls` 拿各控件句柄
+3. 点"打开程序文件" → 文件对话框弹出 → **文件名注入用 Win32 `WM_SETTEXT`**（MCP 工具集无文本输入）→ 点"打开"
+4. 点"下载/编程" → 端口框选 `(HID1) USB-Writer`（芯片自动进入下载模式）→ 日志确认 `操作成功`
+
+**坑**：
+- **hwnd 每次重启/重开都会变**，必须重新 `list_windows` 发现，不可复用旧句柄
+- MCP 只操控宿主程序自己的窗口；**无键盘/文本输入工具**，文件对话框填路径靠 `WM_SETTEXT`
+- 芯片处于下载模式时 USB 枚举为 `USB-Writer`（HID），不是 COM 口；COM 口是运行时 USB-CDC 的
+
+## 当前架构状态（2026-08）
+
+| 模块 | 状态 |
+|------|------|
+| 任务框架 task_sched（2/3/5/6） | ✅ 就绪（5/6 复用巡线+球稳引擎，`DEBUG_LINE_FOREVER` 调试中） |
+| 差速开环巡线 line_ctrl | ✅ 就绪（弯道自适应减速 + KdYaw 陀螺仪阻尼，待真机调参） |
+| 球稳环 ball_ctrl（舵机摆杆） | ✅ 就绪（标定参数 servo_center_duty/pixel_zero/px_per_cm 待现场标） |
+| IMU660RA 陀螺仪 imu_ctrl | ✅ 就绪（硬件 SPI3，X 轴 yaw，开机静止 1s 标定） |
+| 调试 | ✅ USB-CDC 串口调试帧（任务运行时 100ms/帧） |
+| 真机调参 | ⚠️ 待做（KdYaw / 球稳标定 / 停车判定开启） |
 
 ## STC32 编程约定
 
@@ -233,14 +263,19 @@ _archive/              ← 存档（M0项目/K230项目/模型项目）
 
 | 文件 | 功能 | 说明 |
 |------|------|------|
-| `main.c` | 主程序 | WiFi SPI → 摄像头初始化 → 逐飞助手 → 循环采集检测发送 |
-| `camera.c/h` | 灰度摄像头 | MT9V03x DMA 采集、裁切、**OTSU 二值化找钢球**（高亮中心+暗环） |
-| `IRPHOTO.c/h` | 八路红外循迹 | 8 路 GPIO 输入，加权求和算偏差，停车标志检测 |
-| `Motor.c/h` | 电机+编码器 | PWM 驱动 + 编码器读取，PIT 定时器触发 PID 更新 |
-| `PID.c/h` | PID 控制器 | 增量式 PID，双电机速度闭环 + 舵机差速转向 |
-| `control.c/h` | 转向控制 | 差速转向（根据偏差调节左右轮目标速度） |
-| `isr.c/h` | 中断服务 | GPIO/UART/DMA/Timer 中断向量表，摄像头 VSYNC+DMA 回调 |
-| `WcMenu.c/h` | 栈式菜单系统 | 按键导航、逐项滚动、回调执行，基于 WcTFT180 显示 |
+| `main.c` | 主程序 | 三态循环：菜单 ⇄ 任务 ⇄ 结果（按键导航 + Launch 启动任务） |
+| `IRPHOTO.c/h` | 八路红外循迹 | 8 路 GPIO 输入，加权偏差，停车标志检测 |
+| `Motor.c/h` | 电机+编码器 | PWM 驱动 + 编码器采样，PIT 5ms 时基（`pit_tick` 计数） |
+| `PID.c/h` | 位置式 PID | **唯一 PID 用于差速**（Target 恒 0）；int32 积分余数消除死区 |
+| `line_ctrl.c/h` | 差速开环巡线 | 偏差→左右轮 PWM duty 差；弯道自适应减速；KdYaw 陀螺仪阻尼 |
+| `ball_ctrl.c/h` | 球稳环 | 舵机摆杆 + 球位置 PID（OpenART 反馈） |
+| `task_sched.c/h` | 任务框架 | 任务 2/3/5/6 调度 + 结果页 + USB-CDC 串口调试帧 |
+| `imu_ctrl.c/h` | 陀螺仪 | IMU660RA 硬件 SPI3，X 轴 yaw 积分，开机静止标定 |
+| `config.c/h` | 配置持久化 | 32 槽 IAP，XOR 校验 + 边界验证 |
+| `protocol.c/h` | OpenART 协议 | UART3 接收球坐标 `B,x\n` |
+| `menu_defs.c/h` | 菜单页面 | Steer PID/Base Speed/Protocol + Launch 任务列表 |
+| `isr.c/h` | 中断服务 | GPIO/UART/DMA/Timer 中断向量表 |
+| `WcMenu.c/h` | 栈式菜单 | 按键导航、逐项滚动、回调执行 |
 
 ### 八路红外循迹 (IRPHOTO)
 
@@ -255,89 +290,116 @@ int is_stop(int s[8]);  // ≥4 个连续传感器检测到黑线 → 返回 1�
                         // 全部未检测到（冲出赛道保护）→ 返回 1
 ```
 
-### 灰度摄像头 (camera.c)
+### 位置式 PID (PID.c)
 
 ```c
-#define CROP_MAX_ROWS  20   // 裁切行数（ROI 区域）
-#define CROP_MAX_COLS  188  // 裁切列数
-
-uint8 camera_copy[120][188];          // DMA 采集的完整帧
-uint8 camera_crop[CROP_MAX_ROWS][CROP_MAX_COLS]; // 裁切后 ROI
-
-void camera_copy_image(void);  // 等 mt9v03x_finish_flag 后拷贝到 camera_copy
-void camera_crop_image(row_start, rows, col_start, cols); // 裁切 ROI
-
-// OTSU 大津法自适应阈值 → 找最亮点（高光中心）→ 8 方向采样暗环验证
-// 返回 1=找到，*x=列坐标，*y=行坐标
-uint8 find_ball(uint8 *x, uint8 *y);
-```
-
-OTSU 钢球检测原理：钢球在灰度图像中呈现「中心高亮 + 环形暗区」特征：
-1. 大津法计算整帧自适应阈值
-2. 找最亮点（>150 灰度），8 方向采样（半径 4px）
-3. ≥5 个方向低于阈值 → 确认是钢球
-
-### 电机 + PID (Motor.c + PID.c)
-
-```c
-// ---- 硬件引脚 ----
-// 电机1: DIR=IO_P74, PWM=PWMB_CH2_P75, 编码器=PWMA P60/P62
-// 电机2: DIR=IO_P76, PWM=PWMB_CH4_P77, 编码器=PWMC P40/P42
-
-// ---- PID 结构体 ----
 typedef struct {
     int16 Target, Actual, Out;
     int16 Kp, Ki, Kd;
     int16 Error0, Error1, Error2;
     int16 OutMax, OutMin;
+    int32 Integral;      // int32 余数积分，消除整数除法死区
 } PID_t;
+
+void PID_Update(PID_t *p);      // 位置式 PID 更新（见下方逻辑）
+```
+
+位置式核心：`Out = Kp*e + Integral/10 + Kd*Δe`，int32 域计算后截断 int16；**饱和时冻结积分（anti-windup）**。当前工程**唯一 PID 实例是差速 `steer_pid`**（Target 恒 0，Error = 0 - 红外偏差），无电机速度闭环。
+
+### 电机 (Motor.c)
+
+```c
+// ---- 硬件引脚 ----
+// 电机1: DIR=IO_P74, PWM=PWMB_CH2_P75, 编码器=PWMA P60/P62（反向安装，负 duty 前进）
+// 电机2: DIR=IO_P76, PWM=PWMB_CH4_P77, 编码器=PWMC P40/P42
 
 void Motor_Init(void);          // PWM 17kHz, GPIO 方向引脚
 void encoder_init(void);        // 编码器正交解码初始化
 void motor1_control(int16 d);   // 正转/反转 + PWM 占空比
 void motor2_control(int16 d);
-void PID_Update(PID_t *p);      // 增量式 PID 更新
+int16 motor_get_encoder_lr(void);   // 诊断：左轮 5ms 编码器计数
+int16 motor_get_encoder_rr(void);   // 诊断：右轮 5ms 编码器计数
 
-// PIT 定时器中断回调 (pit_handler):
-//   读编码器计数 → 清零 → 作为 PID.Actual → PID_Update → 输出到电机
+// PIT 定时器中断回调 (pit_handler): 仅 pit_tick++ + 编码器采样，不做 PID
 ```
 
-### 转向控制 (control.c)
+> **编码器不参与闭环**：差速是开环 PWM，编码器只作诊断显示（串口 E1/E2）。
+
+### 差速开环巡线 (line_ctrl.c)
 
 ```c
-void steer_init(void);  // 初始化转向 PID (Kp=5, OutMax=±20)
-void steer_set(int error, int base_speed);
-// error = 红外循迹偏差，base_speed = 基础速度
-// 左轮目标 = base_speed - steer_pid.Out
-// 右轮目标 = base_speed + steer_pid.Out
+void line_ctrl_init(void);                       // 差速 PID + 配置加载
+void line_ctrl_set(int error, int base_speed);   // 每 10ms：偏差 → 左右轮 duty
 ```
 
-### main.c 启动流程
+- `base_speed` 是基准 duty（0-10000 满量程），`steer_pid.Out` 是差速量；`左 = base - Out`，`右 = base + Out`
+- **弯道自适应减速**：|error|≤2→100%，≤4→85%，否则 70%
+- **差速钳位**：上限 base，下限 `-base/3`（允许内侧轮反转，改善 0.5m 半径弯道）
+- **陀螺仪阻尼**：`Out -= kd_yaw * 角速度`，`kd_yaw` 在 Steer PID 菜单第 6 项（默认 0 不生效；同时削弱正常转弯，需现场调小）
+
+### 球稳环 (ball_ctrl.c)
+
+```c
+void ball_ctrl_init(void);           // 舵机 PWM + 球 PID + 标定加载
+void ball_ctrl_set_target(int16 cm_x10);  // 球目标位置（0.1cm，相对 O）
+void ball_ctrl_tick(void);           // 10ms：读球位→cm→PID→舵机
+void ball_ctrl_stop(void);           // 舵机回中位
+```
+
+- 硬件：舵机 `PWME_CH1P_PA0 @ 50Hz`，duty 250(0.5ms)~1250(2.5ms)，中位 750
+- 反馈：OpenART 球像素 X → `cm_x10 = (pixel - pixel_zero) * 10 / px_per_cm`
+- **丢球保护**：`proto_ball_valid==0` 保持上次输出
+- 标定参数：`servo_center_duty / pixel_zero / px_per_cm / ball_target_cm_x10`（config 持久化）
+
+### 任务框架 (task_sched.c)
+
+```c
+void task_sched_set(int task_id);   // TASK_2/3/5/6
+void task_sched_run(void);          // 阻塞运行所选任务 + 结果页
+```
+
+- `line_drive_run(enable_ball, ball_target)`：任务 2/5/6 共用巡线引擎（5/6 并行球稳）
+- `task3_run()`：球 O→+5→-5 往返，到位 ±1cm 持续 100ms
+- `DEBUG_LINE_FOREVER` 宏：1=关闭脱轨/停车结束判定一直巡线（调试）；调好后改 0
+- 任务运行中每 100ms 发 USB-CDC 调试帧：`T= E= D1= D2= E1= E2= BASE= SO= [B= TGT= PX= V= SD=]`
+
+### IMU 陀螺仪 (imu_ctrl.c)
+
+```c
+void imu_ctrl_init(void);               // 初始化重试 + 静止 1s 零点标定（失败不阻塞）
+void imu_ctrl_tick(uint16 dt_ms);       // 周期调用：读角速度 → yaw 积分
+void imu_ctrl_reset_yaw(void);          // 航向清零
+extern int16 imu_gyro_dps_x10;          // 0.1°/s（阻尼数据源）
+extern int32 imu_yaw_x100;              // 0.01°
+```
+
+- 硬件：**IMU660RA 六轴，硬件 SPI3**（SCK=P87 / MOSI=P85 / MISO=P86 / CS=P34，VCC=3V3 GND=地），库默认配置零改动
+- **yaw 轴 = X 轴**（模块竖插实测）：`imu_ctrl.c` 里 `IMU_YAW_RAW()` / `IMU_YAW_SIGN` 两个宏，方向反了把 SIGN 改 -1
+- 静态零点标定：开机静止采样 200 次求平均偏置，**消除积分漂移**（航向可用性关键）
+- 采样放主循环（非中断）：10ms 节拍够航向反馈；避免软硬件 SPI 被高优先级中断打断
+- 用途：`kd_yaw` 阻尼（用瞬时角速度，不依赖 yaw 积分精度）
+
+### main.c 三态循环
 
 ```c
 void main(void) {
-    clock_init(SYSTEM_CLOCK_96M);
-    debug_init();
+    clock_init(SYSTEM_CLOCK_96M);  debug_init();  WcTFT_Init();
+    IRPHOTO_Init();  button_init();  Motor_Init();  encoder_init();
+    Protocol_Init();
+    config_load();  line_ctrl_init();  ball_ctrl_init();
+    if (config_valid()) base_speed = flash_buff[5];
+    imu_ctrl_init();
+    pit_ms_init(PIT_ENCODER, 5, pit_handler);
+    Menu_Init();  Menu_Push(&page_main);
 
-    // 1. WiFi SPI 连接
-    wifi_spi_init(WIFI_SSID, WIFI_PASSWORD);
-    wifi_spi_socket_connect("TCP", TARGET_IP, TARGET_PORT, LOCAL_PORT);
-
-    // 2. 摄像头初始化
-    mt9v03x_init();
-
-    // 3. 逐飞助手协议（WiFi 传输调试画面+数据）
-    seekfree_assistant_interface_init(SEEKFREE_ASSISTANT_WIFI_SPI);
-    seekfree_assistant_camera_information_config(
-        SEEKFREE_ASSISTANT_MT9V03X, camera_crop[0], CROP_MAX_COLS, CROP_MAX_ROWS);
-    seekfree_assistant_camera_boundary_config(
-        XY_BOUNDARY, 1, &ball_x, NULL, NULL, &ball_y, NULL, NULL);
-
-    while(1) {
-        camera_copy_image();                    // 拷贝 DMA 帧
-        camera_crop_image(50, 20, 0, 188);      // 裁切 ROI（行50~69, 全列）
-        find_ball(&ball_x, &ball_y);            // OTSU 找球
-        seekfree_assistant_camera_send();       // 发送到逐飞助手
+    while (1) {
+        while (!launch_triggered) {   // [菜单] 按键导航 + Protocol_ReadBall
+            button_control(...);  if (key1..5_flag) Menu_*();
+            system_delay_ms(10);
+        }
+        task_sched_run();             // [任务] 阻塞运行 + 结果页
+        launch_triggered = 0;
+        Menu_Push(&page_main);        // 回菜单
     }
 }
 ```
@@ -346,15 +408,17 @@ void main(void) {
 
 | 功能 | 函数 | 所属模块 |
 |------|------|----------|
-| 时钟 | `clock_init(SYSTEM_CLOCK_96M)` / `SYSTEM_CLOCK_120M` | zf_common |
+| 时钟 | `clock_init(SYSTEM_CLOCK_96M)` | zf_common |
 | 延时 | `system_delay_ms(ms)` / `system_delay_us(us)` | zf_driver |
 | GPIO | `gpio_init(pin, dir, dat, mode)` / `gpio_set_level(pin, dat)` / `gpio_get_level(pin)` / `gpio_low(pin)` / `gpio_high(pin)` | zf_driver |
 | PWM | `pwm_init(ch, freq, duty)` / `pwm_set_duty(ch, duty)` | zf_driver |
 | 编码器 | `encoder_dir_init(enc, pulse_pin, dir_pin)` / `encoder_get_count(enc)` | zf_driver |
-| 摄像头 | `mt9v03x_init()` / `mt9v03x_finish_flag` / `mt9v03x_image[][]` | zf_device |
-| WiFi SPI | `wifi_spi_init(ssid, pwd)` / `wifi_spi_socket_connect(...)` | zf_device |
-| 逐飞助手 | `seekfree_assistant_interface_init(...)` / `seekfree_assistant_camera_send()` | zf_components |
-| 调试输出 | `debug_init()` / `debug_send_buffer(buff, len)` / `debug_read_buffer(buff, len)` (USB-CDC) | zf_common |
+| PIT 定时 | `pit_ms_init(PIT, ms, callback)` | zf_driver |
+| 舵机 | `pwm_init(PWME_CH1P_PA0, 50, 750)` / `pwm_set_duty(...)` | zf_driver |
+| UART | `uart_init(port, baud, tx, rx)` / `uart_write_string(port, s)` | zf_driver |
+| IMU660RA | `imu660ra_init()` / `imu660ra_get_gyro()` / `imu660ra_gyro_x/y/z` | zf_device |
+| 格式化 | `zf_sprintf(int8*, fmt, ...)` → uint32 长度 | zf_common |
+| 调试输出 | `debug_init()` / `usb_cdc_write_buffer(buff, len)` / `usb_cdc_write_string(s)` (USB-CDC) | zf_common |
 
 ### TFT180 显示屏 (zf_device_tft180)
 
@@ -406,8 +470,11 @@ void tft180_show_gray_image(uint16 x, uint16 y, const uint8 *img, uint16 w, uint
 |------|---------|---------|
 | **背光控制不能用宏** | `TFT180_BL(0)` / `TFT180_BL(1)` | `gpio_set_level(TFT180_BL_PIN, 0/1)` |
 | **串口无 write_string** | `debug_write_string("...")` | `debug_send_buffer((uint8*)"...", len)` |
+| **zf_sprintf %d 不能直接传 int16** | `zf_sprintf(b, "%d", int16_val)` | `zf_sprintf(b, "%d", (int32)int16_val)` |
 
 > `TFT180_BL(x)` 宏展开为 `P82 = x`，但 STC32 上 **P8 端口不是位可寻址 SFR**（仅 P0-P3 是），编译报错 `undefined identifier 'P82'`。必须用 `gpio_set_level` 替代。
+
+> **`zf_sprintf` 的 `%d` 按 int32 读变参**，而 C251 的 int=16 位。传 int16 时栈上只有 2 字节，`va_arg(int32)` 读到 `0x0000FFFF`——**int16 负数 -1 会被打印成 65535**。所有 `%d` 参数必须显式 `(int32)` 转换（已在 task_sched.c/main.c 串口帧中统一处理；`tft180_show_int16` 等库函数内部也有此问题）。
 
 ### Keil 工程管理
 
@@ -456,6 +523,8 @@ WcTFT_PrintInt(cnt);
 **完整 API**：见 `WcTFT180.h` 注释，主要包括 `WcTFT_Init / Clear / Backlight / SetColor / Print / PrintAt / PrintCenter / PrintRow / PrintInt / PrintFloat / PrintIntAt / PrintFloatAt / Goto / GotoRow / Newline / Tab / DrawPoint / DrawHLine / DrawVLine / DrawRect / FillRect / GetMaxCols / GetMaxRows`。
 
 ## OMV-RT5 编程约定
+
+> 芯片型号 OMV-RT5，代码在仓库目录 **`OPenMV RT5/`**。
 
 ### WiFi MJPEG 图传（对应 PDF 任务 1）
 

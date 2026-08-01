@@ -28,7 +28,7 @@
 
 /* ── 协议状态（全局可读） ── */
 extern int16 proto_ball_x;       /* 最新球 X 坐标（像素），仅 proto_ball_valid=1 时有效 */
-extern uint8 proto_ball_valid;   /* 1=有有效球数据，0=未检测到 */
+extern int16 proto_ball_valid;   /* 1=有有效球数据，0=未检测到（int16 以匹配菜单 BOOL 项） */
 
 /* ── 初始化和控制 ── */
 void Protocol_Init(void);        /* 初始化 UART3 + DMA 接收 */

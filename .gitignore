@@ -13,6 +13,11 @@ Thumbs.db
 # Build artifacts
 OurProject/project/mdk/out_file/
 OurProject/project/mdk/out_file_temp/
+OurProject/project/mdk/build_out.txt
+
+# 外部烧录/调试工具（不纳入版本控制）
+OurProject/project/逐飞助手/
+OurProject/project/*.lnk
 
 # OMV-RT5 vendor reference (not our code)
 OPenMV RT5/omv-rt-visual_module/

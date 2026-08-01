@@ -910,14 +910,44 @@
               <FilePath>..\user\PID.h</FilePath>
             </File>
             <File>
-              <FileName>control.c</FileName>
+              <FileName>ball_ctrl.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\user\control.c</FilePath>
+              <FilePath>..\user\ball_ctrl.c</FilePath>
             </File>
             <File>
-              <FileName>control.h</FileName>
+              <FileName>ball_ctrl.h</FileName>
               <FileType>5</FileType>
-              <FilePath>..\user\control.h</FilePath>
+              <FilePath>..\user\ball_ctrl.h</FilePath>
+            </File>
+            <File>
+              <FileName>line_ctrl.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\user\line_ctrl.c</FilePath>
+            </File>
+            <File>
+              <FileName>line_ctrl.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\user\line_ctrl.h</FilePath>
+            </File>
+            <File>
+              <FileName>imu_ctrl.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\user\imu_ctrl.c</FilePath>
+            </File>
+            <File>
+              <FileName>imu_ctrl.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\user\imu_ctrl.h</FilePath>
+            </File>
+            <File>
+              <FileName>task_sched.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\user\task_sched.c</FilePath>
+            </File>
+            <File>
+              <FileName>task_sched.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\user\task_sched.h</FilePath>
             </File>
             <File>
               <FileName>KEY.c</FileName>

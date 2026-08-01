@@ -8,10 +8,7 @@ OpenART 钢球检测 — TFLite 模型 + UART 输出
   B,<cx>\n   — 检测到球，cx = 像素 X 坐标 (0-319)
   N\n        — 未检测到
 
-控制命令 (STC32→OpenART):
-  START\n    — 开始发送
-  STOP\n    — 暂停发送
-  CAL\n     — 校准零点
+上电即自动持续发送（无 START/STOP 命令门控，STC32 无需发开始指令）。
 
 依赖:
   SD 卡根目录放入 yolo3_iou_smartcar_final_with_post_processing.tflite
@@ -41,38 +38,16 @@ CLR_RED     = (255, 80, 80)
 # =============================================================================
 
 uart = UART(12, baudrate=115200)
-uart_sending = True
 
 
 def send_ball(cx):
-    if uart_sending:
-        uart.write("B,%d\n" % cx)
+    uart.write("B,%d\n" % cx)
+    print("TX B,%d" % cx)   # 临时调试：确认 OpenART 在发数据
 
 
 def send_none():
-    if uart_sending:
-        uart.write("N\n")
-
-
-def check_command():
-    global uart_sending
-    n = uart.any()
-    if n == 0:
-        return
-    data = uart.read(n)
-    if data is None:
-        return
-    try:
-        cmd = data.decode().strip().upper()
-    except:
-        return
-
-    if cmd == "START":
-        uart_sending = True
-    elif cmd == "STOP":
-        uart_sending = False
-    elif cmd == "CAL":
-        pass  # TODO
+    uart.write("N\n")
+    print("TX N")           # 临时调试
 
 
 # =============================================================================
@@ -130,14 +105,11 @@ def main():
                 best_cx = cx
                 found = True
 
-        # 发送 UART
+        # 发送 UART（上电即持续发送，无需开始命令）
         if found:
             send_ball(best_cx)
         else:
             send_none()
-
-        # 检查命令
-        check_command()
 
         # ── 裁剪区域指示线 ──
         img.draw_line(0, CROP_Y1, W-1, CROP_Y1, color=(255,255,0), thickness=1)  # 上边界
@@ -159,10 +131,8 @@ def main():
                             color=CLR_BALL, thickness=2)
 
         fps = clock.fps()
-        status = "TX:ON" if uart_sending else "TX:OFF"
-        status_color = CLR_BALL if uart_sending else CLR_RED
-        img.draw_string(2, 2, "%.1ffps %s" % (fps, status),
-                        color=status_color, scale=1)
+        img.draw_string(2, 2, "%.1ffps TX:ON" % fps,
+                        color=CLR_BALL, scale=1)
         if found:
             img.draw_string(2, 16, "X=%d s=%.2f" % (best_cx, best_score),
                             color=CLR_BALL, scale=1)
