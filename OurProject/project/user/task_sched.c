@@ -20,9 +20,11 @@
 #include "menu_defs.h"
 #include "WcTFT180.h"
 #include "imu_ctrl.h"    /* imu_ctrl_tick, imu_gyro_dps_x10, imu_yaw_deg */
+#include "cmd_ctrl.h"    /* cmd_poll：结果页也响应串口命令 */
 
-/* ── 调试开关 ── */
-#define DEBUG_LINE_FOREVER   1    /* 1=关闭 2/5/6 脱轨/停车结束判定，一直巡线 */
+/* ── 调试开关 ──
+ * 停车/脱轨判定已删（专注巡线调参），任务只靠 30s 超时停；停车逻辑后续恢复 */
+#define DEBUG_LINE_FOREVER   1
 
 /* ── 全局状态 ── */
 static TaskId current_task = TASK_IDLE;
@@ -35,10 +37,13 @@ static int    last_result  = TASK_RESULT_RUNNING;
 static int line_drive_run(uint8 enable_ball, int16 ball_target)
 {
     int s[8];
-    uint8  off_count = 0, display_cd = 0;
+    uint8  display_cd = 0;
     uint32 start_tick, last_imu_tick, elapsed_ms;
     uint16 sec, tenth, imu_dt;
     int    result = TASK_RESULT_OK;
+
+    /* 任务 2/5/6 超时保护（整圈 30s，任务 2 限 20s 但留余量） */
+    const uint32 line_timeout_ms = 30000UL;
 
     motor1_control(0);
     motor2_control(0);
@@ -52,7 +57,6 @@ static int line_drive_run(uint8 enable_ball, int16 ball_target)
 
     while (1)
     {
-        uint8 reason;
         int   err;
 
         /* IMU 采样 + yaw 积分（pit_tick 实测 dt，避免 system_delay 累积误差） */
@@ -60,26 +64,6 @@ static int line_drive_run(uint8 enable_ball, int16 ball_target)
         imu_ctrl_tick(imu_dt);
 
         IRPHOTO_Read(s);
-        reason = is_stop(s);
-
-        /* 脱轨：连续 3 次采样（≈30ms）全灭才确认，去抖防误判 */
-        if (reason == 2)
-        {
-            if (++off_count >= 3)
-            {
-#if DEBUG_LINE_FOREVER
-                off_count = 0;              /* 调试：复位继续巡线，不结束 */
-#else
-                result = TASK_RESULT_FAIL; break;
-#endif
-            }
-        }
-        else
-        {
-            off_count = 0;
-        }
-        /* 停车线到达（调试：关闭） */
-        //if (reason == 1 && ...) break;
 
         /* 巡线 + 可选球稳 */
         err = calc_error(s);
@@ -120,29 +104,48 @@ static int line_drive_run(uint8 enable_ball, int16 ball_target)
             }
             /* 陀螺仪数据不占屏幕，走 USB-CDC 串口（GZ=/YAW=） */
 
-            /* USB-CDC 串口调试帧（一行一个参数，便于电脑串口助手查看） */
+            /* USB-CDC 串口调试帧（一行一帧，空格分隔，便于上位机解析） */
             {
                 char dbg[192];
                 uint32 n = 0;
+                char ir_bits[9];
+                uint8 i;
                 /* %d 参数必须 (int32) 转换：zf_sprintf 按 int32 读变参，int16 负数会读成 65535 */
-                n += zf_sprintf((int8 *)(dbg + n), "T=%d.%d\n", (int32)sec, (int32)tenth);
-                n += zf_sprintf((int8 *)(dbg + n), "E=%d\n", (int32)err);
-                n += zf_sprintf((int8 *)(dbg + n), "D1=%d\n", (int32)line_duty_lr);
-                n += zf_sprintf((int8 *)(dbg + n), "D2=%d\n", (int32)line_duty_rr);
-                n += zf_sprintf((int8 *)(dbg + n), "E1=%d\n", (int32)motor_get_encoder_lr());
-                n += zf_sprintf((int8 *)(dbg + n), "E2=%d\n", (int32)motor_get_encoder_rr());
-                n += zf_sprintf((int8 *)(dbg + n), "BASE=%d\n", (int32)base_speed);
-                n += zf_sprintf((int8 *)(dbg + n), "SO=%d\n", (int32)steer_pid.Out);
+                for (i = 0; i < 8; i++) ir_bits[i] = s[i] ? '1' : '0';
+                ir_bits[8] = '\0';
+                n += zf_sprintf((int8 *)(dbg + n), "T=%d.%d ", (int32)sec, (int32)tenth);
+                n += zf_sprintf((int8 *)(dbg + n), "E=%d ", (int32)err);
+                n += zf_sprintf((int8 *)(dbg + n), "IR=%s ", ir_bits);
+                n += zf_sprintf((int8 *)(dbg + n), "D1=%d ", (int32)line_duty_lr);
+                n += zf_sprintf((int8 *)(dbg + n), "D2=%d ", (int32)line_duty_rr);
+                n += zf_sprintf((int8 *)(dbg + n), "SO=%d ", (int32)steer_pid.Out);
+                n += zf_sprintf((int8 *)(dbg + n), "E1=%d ", (int32)motor_get_encoder_lr());
+                n += zf_sprintf((int8 *)(dbg + n), "E2=%d ", (int32)motor_get_encoder_rr());
+                n += zf_sprintf((int8 *)(dbg + n), "BASE=%d ", (int32)base_speed);
+                n += zf_sprintf((int8 *)(dbg + n), "YAW=%d ", (int32)(imu_yaw_x100 / 100));   /* 航向度 */
+                n += zf_sprintf((int8 *)(dbg + n), "GZ=%d ", (int32)imu_gyro_dps_x10);       /* 0.1°/s */
                 if (enable_ball)
                 {
-                    n += zf_sprintf((int8 *)(dbg + n), "B=%d\n", (int32)ball_cm_x10);
-                    n += zf_sprintf((int8 *)(dbg + n), "TGT=%d\n", (int32)ball_pid.Target);
-                    n += zf_sprintf((int8 *)(dbg + n), "PX=%d\n", (int32)proto_ball_x);
-                    n += zf_sprintf((int8 *)(dbg + n), "V=%d\n", (int32)proto_ball_valid);
+                    n += zf_sprintf((int8 *)(dbg + n), "B=%d ", (int32)ball_cm_x10);
+                    n += zf_sprintf((int8 *)(dbg + n), "TGT=%d ", (int32)ball_pid.Target);
+                    n += zf_sprintf((int8 *)(dbg + n), "PX=%d ", (int32)proto_ball_x);
+                    n += zf_sprintf((int8 *)(dbg + n), "V=%d ", (int32)proto_ball_valid);
                     n += zf_sprintf((int8 *)(dbg + n), "SD=%d\n", (int32)ball_duty_out);
+                }
+                else
+                {
+                    n += zf_sprintf((int8 *)(dbg + n), "\n");
                 }
                 usb_cdc_write_buffer((const uint8 *)dbg, (uint16)n);
             }
+        }
+
+        /* 超时保护：整圈 30s 兜底（任务 2 限 20s 留余量；5/6 同限） */
+        EA = 0; elapsed_ms = (pit_tick - start_tick) * 5; EA = 1;
+        if (elapsed_ms > line_timeout_ms)
+        {
+            result = TASK_RESULT_TIMEOUT;
+            break;
         }
     }
 
@@ -246,15 +249,15 @@ static int task3_run(void)
             WcTFT_PrintAt(0, 96, "D:");
             WcTFT_PrintIntAt(24, 96, (int32)ball_duty_out);
 
-            /* USB-CDC 串口调试帧（一行一个参数） */
+            /* USB-CDC 串口调试帧（一行一帧） */
             {
                 char dbg[128];
                 uint32 n = 0;
-                n += zf_sprintf((int8 *)(dbg + n), "T=%d.%d\n", (int32)sec, (int32)tenth);
-                n += zf_sprintf((int8 *)(dbg + n), "B=%d\n", (int32)ball_cm_x10);
-                n += zf_sprintf((int8 *)(dbg + n), "TGT=%d\n", (int32)ball_pid.Target);
-                n += zf_sprintf((int8 *)(dbg + n), "PX=%d\n", (int32)proto_ball_x);
-                n += zf_sprintf((int8 *)(dbg + n), "V=%d\n", (int32)proto_ball_valid);
+                n += zf_sprintf((int8 *)(dbg + n), "T=%d.%d ", (int32)sec, (int32)tenth);
+                n += zf_sprintf((int8 *)(dbg + n), "B=%d ", (int32)ball_cm_x10);
+                n += zf_sprintf((int8 *)(dbg + n), "TGT=%d ", (int32)ball_pid.Target);
+                n += zf_sprintf((int8 *)(dbg + n), "PX=%d ", (int32)proto_ball_x);
+                n += zf_sprintf((int8 *)(dbg + n), "V=%d ", (int32)proto_ball_valid);
                 n += zf_sprintf((int8 *)(dbg + n), "SD=%d\n", (int32)ball_duty_out);
                 usb_cdc_write_buffer((const uint8 *)dbg, (uint16)n);
             }
@@ -298,10 +301,11 @@ static void task_sched_show_result(int result)
 
     WcTFT_PrintCenter(6, "Key4: Back");
 
-    /* 等待 Key4 返回菜单 */
+    /* 等待 Key4 返回菜单；同时响应串口命令（T2 等可立即重跑，无需按键） */
     while (1)
     {
         button_control(0);
+        cmd_poll();                      /* 结果页也处理 USB-CDC 命令 */
         if (key4_flag) { key4_flag = 0; break; }
         system_delay_ms(10);
     }

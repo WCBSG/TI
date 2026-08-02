@@ -229,6 +229,7 @@ _archive/              ← 存档（M0项目/K230项目/模型项目）
 - **VSCode 导航**：`#include` 行上的文件名用 Ctrl+单击跳转；函数/宏/类型用 F12
 - **STC32 下载**：按住 P32 上电进入 USB 下载模式（无需专用下载器）；更推荐 **AiCube-ISP MCP 自动烧录**（见下）
 - **STC32 头文件路径**：限定在 `OurProject/libraries` 与 `OurProject/project` 内，避免多副本同名文件导致跳转歧义
+- **源码编码：全库 UTF-8 统一**（libraries/user/WcLibraries 已从 GB2312 转 UTF-8，编译不受影响，仅注释编码）。**坑**：Keil（MDK）编辑器默认按 GBK 解析，UTF-8 注释在 Keil 里显示乱码——需 Edit → Configuration → Editor → Encoding 改 UTF-8（VSCode 无此问题）。新增/修改源码保持 UTF-8 无 BOM，勿混入 GB2312
 
 > **STC32 维护者：why-456**。
 
@@ -254,9 +255,15 @@ _archive/              ← 存档（M0项目/K230项目/模型项目）
 | 差速开环巡线 line_ctrl | ✅ 就绪（弯道自适应减速 + KdYaw 陀螺仪阻尼，待真机调参） |
 | 球稳环 ball_ctrl（舵机摆杆） | ✅ 就绪（300Hz 舵机，标定参数 servo_center_duty/pixel_zero/px_per_cm 待现场标） |
 | IMU660RA 陀螺仪 imu_ctrl | ✅ 就绪（硬件 SPI3，X 轴 yaw，开机静止 1s 标定，转一圈验证 354°） |
-| 4 键菜单 KEY.c | ✅ 就绪（b2/b3/b4/P3.2，20ms 去抖 + 长按重复；LED 灯带 300Hz PWM） |
-| 调试 | ✅ USB-CDC 串口调试帧（任务运行时 100ms/帧） |
-| 真机调参 | ⚠️ 待做（KdYaw / 球稳标定 / 停车判定开启） |
+| 4 键按键 KEY.c | ✅ 就绪（b2/b3/b4/P3.2，20ms 去抖 + 长按重复，修复按一次识别两次） |
+| 菜单 menu_defs | ✅ 已简化（删失效 Send 命令；Spd/Led 直接编辑；Protocol→Ball 调试页） |
+| 红外循迹 IRPHOTO | ✅ 引脚改为 P94/P54/P93/P92/P14/P11/P07/P06（与 IMU SPI3 错开） |
+| 图传 OMV-RT5 | ✅ MJPEG 推流重写（帧半截不丢/多客户端/排空 accept，浏览器画面已修复） |
+| 源码编码 | ✅ 全库（libraries/user/WcLibraries）UTF-8 统一，编译 0 Error 0 Warning |
+| 串口命令 cmd_ctrl | ✅ 上位机发 T2/IR 等命令启动测试（USB-CDC 双向，用户只负责烧录放车） |
+| 调试 | ✅ USB-CDC 一行一帧调试数据 + tools/serial_monitor.py 监视器 |
+| 差速转向 | ✅ 实测修正：`Actual=+error`（曾两次误判 -error，勿再改） |
+| 真机调参 | ⚠️ 进行中（Kp=18/Kd=25 待实测，KdYaw/球稳标定/停车判定待开） |
 
 ## STC32 编程约定
 
@@ -272,6 +279,7 @@ _archive/              ← 存档（M0项目/K230项目/模型项目）
 | `line_ctrl.c/h` | 差速开环巡线 | 偏差→左右轮 PWM duty 差；弯道自适应减速；KdYaw 陀螺仪阻尼 |
 | `ball_ctrl.c/h` | 球稳环 | 舵机摆杆 + 球位置 PID（OpenART 反馈） |
 | `task_sched.c/h` | 任务框架 | 任务 2/3/5/6 调度 + 结果页 + USB-CDC 串口调试帧 |
+| `cmd_ctrl.c/h` | 串口命令 | USB-CDC 收命令启动测试（T2/T3/T5/T6/IR/STOP/HELP），ISR 只存字节 |
 | `imu_ctrl.c/h` | 陀螺仪 | IMU660RA 硬件 SPI3，X 轴 yaw 积分，开机静止标定 |
 | `config.c/h` | 配置持久化 | 32 槽 IAP，XOR 校验 + 边界验证 |
 | `protocol.c/h` | OpenART 协议 | UART3 DMA 逐字节接收，解析 `B,<cx>\n` / `N\n` |
@@ -283,9 +291,10 @@ _archive/              ← 存档（M0项目/K230项目/模型项目）
 
 ```c
 // 引脚（IRPHOTO.c 内静态表，s[i]=1 表示检测到黑线）
+// 已与 IMU SPI3 (P87/P85/P86/P34) 完全错开，无引脚冲突
 static const gpio_pin_enum ir_pins[8] = {
-    IO_P87, IO_P85, IO_P36, IO_P34,
-    IO_PA1, IO_PA3, IO_PA5, IO_PA7,
+    IO_P94, IO_P54, IO_P93, IO_P92,
+    IO_P14, IO_P11, IO_P07, IO_P06,
 };
 
 // 8 路红外传感器读取，返回加权偏差
@@ -297,8 +306,6 @@ int is_stop(int s[8]);  // ≥4 个连续传感器检测到黑线 → 返回 1�
                         // 全部未检测到（冲出赛道保护）→ 返回 2（区别于停车）
                         // 正常行驶 → 返回 0
 ```
-
-> **⚠️ 引脚复用警告**：IRPHOTO 的 P87/P85/P34 与 IMU SPI3 的 SCK/MOSI/CS 冲突（见 imu_ctrl）。硬件已确认 IR 引脚接线变更，代码当前照此定义；若 IMU 读数异常先查此处。
 
 ### 位置式 PID (PID.c)
 
@@ -319,9 +326,12 @@ void PID_Update(PID_t *p);      // 位置式 PID 更新（见下方逻辑）
 ### 电机 (Motor.c)
 
 ```c
-// ---- 硬件引脚 ----
-// 电机1: DIR=IO_P74, PWM=PWMB_CH2_P75, 编码器=PWMA P60/P62（反向安装，负 duty 前进）
-// 电机2: DIR=IO_P76, PWM=PWMB_CH4_P77, 编码器=PWMC P40/P42
+// ---- 硬件引脚（2026-08 主板，以用户指定为准） ----
+// 电机1 左后轮: DIR=IO_P76, PWM=PWMB_CH4_P77（正向安装，正 duty 前进）
+// 电机2 右后轮: DIR=IO_P74, PWM=PWMB_CH2_P75（反向安装，负 duty 前进）
+// 编码器=PWMA P60/P62（左）、PWMC P40/P42（右）
+// 符号关键：motor1_control(正 left_duty) / motor2_control(-right_duty) 两个都前进
+//   （曾因引脚对调+安装方向反转导致倒车+差速反，已修）
 
 void Motor_Init(void);          // PWM 17kHz, GPIO 方向引脚
 void encoder_init(void);        // 编码器正交解码初始化
@@ -335,6 +345,8 @@ int16 motor_get_encoder_rr(void);   // 诊断：右轮 5ms 编码器计数
 
 > **编码器不参与闭环**：差速是开环 PWM，编码器只作诊断显示（串口 E1/E2）。
 
+> **⚠️ 电机符号（已实测校正）**：motor1_control 给**正 duty**（左后轮 P77 正向安装）、motor2_control 给**负 duty**（右后轮 P75 反向安装）才是前进。勿单独改一侧符号。
+
 ### 差速开环巡线 (line_ctrl.c)
 
 ```c
@@ -343,9 +355,11 @@ void line_ctrl_set(int error, int base_speed);   // 每 10ms：偏差 → 左右
 ```
 
 - `base_speed` 是基准 duty（0-10000 满量程），`steer_pid.Out` 是差速量；`左 = base - Out`，`右 = base + Out`
+- **差速转向符号（实测确认，勿改）**：`steer_pid.Actual = error`。线偏左(error<0)→需左转→eff_out<0→左轮快右轮慢→左转 ✓。**曾两次误判为 `-error`，实测方向反（车平稳偏出），已改回 +error**
 - **弯道自适应减速**：|error|≤2→100%，≤4→85%，否则 70%
 - **差速钳位**：上限 base，下限 `-base/3`（允许内侧轮反转，改善 0.5m 半径弯道）
 - **陀螺仪阻尼**：`Out -= kd_yaw * 角速度`，`kd_yaw` 在 Steer PID 菜单第 6 项（默认 0 不生效；同时削弱正常转弯，需现场调小）
+- **调参初值**：Kp=18 / Kd=25 / BASE=1500（Kp=40 实测振荡甩尾，降 + 加 Kd 抑制）
 
 ### 球稳环 (ball_ctrl.c)
 
@@ -371,7 +385,10 @@ void task_sched_run(void);          // 阻塞运行所选任务 + 结果页
 - `line_drive_run(enable_ball, ball_target)`：任务 2/5/6 共用巡线引擎（5/6 并行球稳）
 - `task3_run()`：球 O→+5→-5 往返，到位 ±1cm 持续 100ms
 - `DEBUG_LINE_FOREVER` 宏：1=关闭脱轨/停车结束判定一直巡线（调试）；调好后改 0
-- 任务运行中每 100ms 发 USB-CDC 调试帧：`T= E= D1= D2= E1= E2= BASE= SO= [B= TGT= PX= V= SD=]`
+- **任务 2/5/6 结束判定（全开）**：脱轨连续 3 次全灭→FAIL；停车线起步 1s 忽略+连续 3 次确认→OK；30s 超时→TIMEOUT
+- 任务运行中每 100ms 发 USB-CDC 调试帧（**一行一帧，空格分隔**）：
+  `T=0.1 E=3 IR=00011000 D1=1440 D2=-1500 SO=60 E1=1 E2=-1 BASE=1500`
+- **结果页也响应串口命令**：`task_sched_show_result` 循环内调 `cmd_poll()`，收到 T2/T3/... 可立即重跑（不再卡死等按键）
 
 ### IMU 陀螺仪 (imu_ctrl.c)
 
@@ -388,6 +405,20 @@ extern int32 imu_yaw_x100;              // 0.01°
 - 静态零点标定：开机静止采样 200 次求平均偏置，**消除积分漂移**（航向可用性关键）
 - 采样放主循环（非中断）：10ms 节拍够航向反馈；避免软硬件 SPI 被高优先级中断打断
 - 用途：`kd_yaw` 阻尼（用瞬时角速度，不依赖 yaw 积分精度）
+
+### 4 键按键 (KEY.c)
+
+```c
+void button_init(void);
+void button_control(uint8 repeat_mask);  // 主循环每 10ms 调用；repeat_mask 按位启用长按重复
+// 全局标志：key1_flag/key2_flag/key3_flag/key4_flag（消费后须清零）
+```
+
+- 引脚：b2=PB2(上/+)、b3=PB3(下/-)、b4=PB4(确定/编辑)、P3.2=P32(返回)
+- **20ms 软件去抖**（`DEBOUNCE_TICKS=2`）：电平变化需连续 2 次采样稳定才确认，**防止机械弹跳跨过采样点产生多个释放沿**（曾导致"按一次识别两次"）
+- **长按去重**：进入长按重复后（`repeat_active`）松开不再补触发释放沿——长按一次只出一串重复值
+- 自动重复参数：启动 200ms → 初始间隔 250ms → 每次 -50ms → 最小 10ms（线性加速）
+- 关键实现细节：释放沿（0→1）触发 flag；**确认按下才累计 hold_ticks**，去抖未确认前跳过重复逻辑
 
 ### main.c 三态循环
 

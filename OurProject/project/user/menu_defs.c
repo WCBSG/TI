@@ -58,7 +58,7 @@ static void cb_ball(void)      { Menu_Push(&page_ball); }
  * ════════════════════════════════════════════════════════════ */
 
 uint8 launch_triggered = 0;
-int16 base_speed        = 1500;   /* 基准 duty（0-10000 满量程），默认 15% */
+int16 base_speed        = 3000;   /* 基准 duty（0-10000 满量程），减速电机 30% */
 
 static void cb_task2(void) { task_sched_set(TASK_2); launch_triggered = 1; }
 static void cb_task3(void) { task_sched_set(TASK_3); launch_triggered = 1; }
@@ -81,7 +81,7 @@ MenuPage page_launch = MENU_PAGE("LAUNCH", launch_items, 5);
 
 static const MenuItem main_items[] = {
     MENU_ITEM(1, "Steer PID",     cb_steer),
-    MENU_ITEM_VAL_RANGE(2, "Spd", &base_speed, 100, 0, 4000),
+    MENU_ITEM_VAL_RANGE(2, "Spd", &base_speed, 100, 0, 6000),
     MENU_ITEM(3, "Ball",          cb_ball),
     MENU_ITEM_VAL_RANGE(4, "Led", &led_duty, 100, 0, 10000),
 };

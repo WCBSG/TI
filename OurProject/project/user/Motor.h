@@ -6,11 +6,11 @@
 
 #define PIT_ENCODER             (TIM1_PIT)  // 定时器 PIT 通道，5ms 硬件时基（计时 + 编码器采样）
 
-#define PWM_1               ( PWMB_CH2_P75 )//左轮速度
-#define DIR_1               ( PWMB_CH1_P74 )//左轮转向
+#define PWM_1               ( PWMB_CH4_P77 )//左后轮速度
+#define DIR_1               ( PWMB_CH3_P76 )//左后轮转向
 
-#define PWM_2               ( PWMB_CH4_P77 )//右轮速度
-#define DIR_2               ( PWMB_CH3_P76 )//右轮转向
+#define PWM_2               ( PWMB_CH2_P75 )//右后轮速度
+#define DIR_2               ( PWMB_CH1_P74 )//右后轮转向
 
 
 #define ENCODER_DIR_LR                  (PWMA_ENCODER)              // 左轮编码器

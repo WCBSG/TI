@@ -43,12 +43,10 @@ uart = UART(12, baudrate=115200)
 
 def send_ball(cx):
     uart.write("B,%d\n" % cx)
-    print("TX B,%d" % cx)   # 临时调试：确认 OpenART 在发数据
 
 
 def send_none():
     uart.write("N\n")
-    print("TX N")           # 临时调试
 
 
 # =============================================================================

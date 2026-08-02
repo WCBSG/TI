@@ -19,10 +19,65 @@
 #include "task_sched.h"
 #include "ball_ctrl.h"
 #include "imu_ctrl.h"
+#include "cmd_ctrl.h"    /* USB-CDC 命令触发测试 */
 
 /* ── LED 灯带 PWM（PA2 = PWME_CH2，300Hz 与舵机同 PWME 组同频） ── */
 #define LED_PWM_PIN    (IO_PA2)
 #define LED_PWM_FREQ   300
+
+
+/* ═══════════════════════════════════════════════════════════
+ * 光电传感器测试（串口 IR 命令触发）：循环读 8 路红外 → USB-CDC 输出
+ * 串口格式: IR=00011000 E=2 ST=0   （IR 左→右 8 位，1=黑线；E=加权偏差；ST=停车标志）
+ * 退出：收到 STOP 命令 / 按任意键
+ * ════════════════════════════════════════════════════════════ */
+static void ir_test_run(void)
+{
+    int  s[8];
+    char bits[9];
+    uint8 i;
+
+    WcTFT_Clear(RGB565_BLACK);
+    WcTFT_SetColor(RGB565_WHITE, RGB565_BLACK);
+    WcTFT_PrintCenter(0, "IR TEST");
+    WcTFT_PrintCenter(3, "STOP: exit");
+
+    while (1)
+    {
+        IRPHOTO_Read(s);
+
+        for (i = 0; i < 8; i++) bits[i] = s[i] ? '1' : '0';
+        bits[8] = '\0';
+
+        /* USB-CDC：位串 + 偏差（%s 用位串，%d 必须 (int32)） */
+        {
+            char buf[48];
+            uint32 n = 0;
+            n += zf_sprintf((int8 *)(buf + n), "IR=%s E=%d\n",
+                            bits, (int32)calc_error(s));
+            usb_cdc_write_buffer((const uint8 *)buf, (uint16)n);
+        }
+
+        /* 屏幕同步显示（安全封装，越界自动截断） */
+        WcTFT_PrintAt(0, 48, "IR:");
+        WcTFT_PrintAt(20, 48, bits);
+        WcTFT_PrintAt(0, 64, "E:");
+        WcTFT_PrintIntAt(20, 64, (int32)calc_error(s));
+
+        /* 检查 STOP 命令 / 任意键退出 */
+        cmd_poll();                      /* 处理 IR 测试期间的命令（STOP 等） */
+        if (!ir_test_cmd) break;         /* STOP 命令清零标志 → 退出 */
+        button_control(0);
+        if (key1_flag || key2_flag || key3_flag || key4_flag)
+        {
+            key1_flag = key2_flag = key3_flag = key4_flag = 0;
+            ir_test_cmd = 0;
+            break;
+        }
+
+        system_delay_ms(100);
+    }
+}
 
 
 /* ═══════════════════════════════════════════════════════════ */
@@ -53,6 +108,8 @@ void main(void)
     gpio_init(LED_PWM_PIN, GPO, 1, GPO_PUSH_PULL);
     pit_ms_init(PIT_ENCODER, 5, pit_handler);
 
+    cmd_ctrl_init();   /* USB-CDC 命令触发：上位机发 T2/IR 等命令启动测试 */
+
     /* ── 启动主菜单 ── */
     Menu_Init();
     Menu_Push(&page_main);
@@ -61,9 +118,20 @@ void main(void)
     launch_triggered = 0;
     while (1)
     {
-        /* ── 菜单阶段：按键导航，等待 Launch 选任务 ── */
+        /* ── 菜单阶段：按键导航 + USB-CDC 命令，等待 Launch/命令 选任务 ── */
         while (!launch_triggered)
         {
+            cmd_poll();                    /* USB-CDC 命令：T2/T3/T5/T6 启动任务，IR 光电测试 */
+
+            if (ir_test_cmd)               /* IR 命令 → 光电测试（STOP/按键退出） */
+            {
+                ir_test_cmd = 0;
+                ir_test_run();
+                WcTFT_Clear(RGB565_BLACK);
+                WcTFT_SetColor(RGB565_WHITE, RGB565_BLACK);
+                Menu_Draw();               /* 测试结束后重绘菜单 */
+            }
+
             button_control(KEY_REPEAT_KEY1 | KEY_REPEAT_KEY2);
 
             if (key1_flag) { key1_flag = 0; Menu_Inc();           }  /* b2: 上/+ */
@@ -95,7 +163,14 @@ void main(void)
         /* ── 任务阶段：阻塞运行所选任务（含结果页），Key4 返回 ── */
         task_sched_run();
 
-        /* ── 回菜单，可重新选择/重跑 ── */
+        /* ── 任务结束 ──
+         * 结果页可能已收到串口命令（T2 等）置位 launch_triggered → 立即重跑
+         * 否则正常回菜单 */
+        if (launch_triggered)
+        {
+            launch_triggered = 0;      /* 清除，让循环重跑新任务 */
+            continue;                  /* 不 Menu_Push 菜单，直接进下一轮 task_sched_run */
+        }
         launch_triggered = 0;
         Menu_Push(&page_main);
     }

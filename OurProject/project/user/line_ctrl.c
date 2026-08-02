@@ -20,11 +20,11 @@ int16 kd_yaw = 0;            /* 陀螺仪阻尼系数（默认 0=不生效） */
 
 void line_ctrl_init(void)
 {
-    steer_pid.Kp     = 40;
+    steer_pid.Kp     = 180;   /* 弯道转弯角速度需要(实测>20°/s 才过弯)，rate limit 削弱已回退 */
     steer_pid.Ki     = 0;
-    steer_pid.Kd     = 0;
-    steer_pid.OutMax = 800;
-    steer_pid.OutMin = -800;
+    steer_pid.Kd     = 50;    /* 用 Kd 抑制差速跳变卡顿（替代 rate limit，不砍弯道响应） */
+    steer_pid.OutMax = 2000;  /* 差速上限 66%，给足转向力度 */
+    steer_pid.OutMin = -2000;
 
     if (config_valid())
     {
@@ -43,12 +43,15 @@ void line_ctrl_set(int error, int base_speed)
     int32 eff_out;
     int   abs_err = (error < 0) ? -error : error;
 
-    /* 弯道自适应减速：|error|>4→70%, >2→85%, else 100%（int32 防溢出） */
+    /* 弯道自适应减速：|error|>6→85%, >2→90%, else 100%（实测 70% 过弯太慢，减轻） */
     if      (abs_err <= 2) spd = (int16)base_speed;
-    else if (abs_err <= 4) spd = (int16)((int32)base_speed * 85 / 100);
-    else                   spd = (int16)((int32)base_speed * 70 / 100);
+    else if (abs_err <= 6) spd = (int16)((int32)base_speed * 90 / 100);
+    else                   spd = (int16)((int32)base_speed * 85 / 100);
 
-    /* 位置式差速 PID：Target 恒 0，Error = 0 - error（正值=偏右） */
+    /* 位置式差速 PID：Target 恒 0，Actual = error（方向实测确认）
+     * 差速规则：左慢右快=左转。线偏左(error<0)需左转 → 需 right 快 left 慢 → eff_out<0
+     *   → Error0<0 → Actual>0 → Actual = error ✓（-error 实测会反，勿改）
+     * 振荡则降 Kp / 加 Kd。 */
     steer_pid.Actual = error;
     PID_Update(&steer_pid);
 
@@ -74,9 +77,16 @@ void line_ctrl_set(int error, int base_speed)
     if (left_duty  < rev_limit) left_duty  = rev_limit;
     if (right_duty < rev_limit) right_duty = rev_limit;
 
-    /* 记录实际输出 duty（诊断显示）；motor1 反向安装（负 duty → 前进） */
-    line_duty_lr = -left_duty;
-    line_duty_rr = right_duty;
-    motor1_control(-left_duty);
-    motor2_control(right_duty);
+    /* 记录实际输出 duty（诊断显示）。
+     * ⚠️ 电机左右（SPIN 实测重新推导）：
+     *   motor1_control(2000) 车右转 → motor1=左轮（左快右慢=右转）
+     *   motor2_control(-2000) 车左转 → motor2=右轮
+     * → 左右未标反！motor1=左轮、motor2=右轮。
+     * 分配：左轮(motor1) 给 left_duty、右轮(motor2) 给 -right_duty。
+     * 符号：motor1 正 duty 前进、motor2 负 duty 前进（已实测）。
+     * 差速验证：线偏右(eff_out<0)→left_duty大→左轮快/right_duty小→右轮慢→左快右慢=右转追线 ✓ */
+    line_duty_lr = left_duty;       /* 诊断：实际左轮 = motor1 收到值 */
+    line_duty_rr = -right_duty;     /* 诊断：实际右轮 = motor2 收到值 */
+    motor1_control(left_duty);      /* 实际左轮 */
+    motor2_control(-right_duty);    /* 实际右轮 */
 }

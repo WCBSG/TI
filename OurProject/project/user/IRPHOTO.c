@@ -31,35 +31,6 @@ int calc_error(int s[8])
     return error;
 }
 
-// 停车标志检测：≥4 个连续传感器同时检测到黑线
-// 附加保护：全部 8 路未检测到黑线 → 视为冲出赛道，返回 2（区别于正常停车 1）
-int is_stop(int s[8])
-{
-    int i;
-    int count = 0;
-    int has_line = 0;
-
-    for (i = 0; i < 8; i++)
-    {
-        if (s[i] == 1)
-        {
-            count++;
-            has_line = 1;
-            if (count >= 4)
-                return 1;       // 停车标志
-        }
-        else
-        {
-            count = 0;
-        }
-    }
-
-    if (!has_line)
-        return 2;               // 冲出赛道保护（区别于停车）
-
-    return 0;                   // 正常行驶
-}
-
 
 void IRPHOTO_Read(int s[8])
 {
