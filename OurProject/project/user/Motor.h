@@ -23,12 +23,17 @@
 
 extern volatile uint32 pit_tick;     /* 5ms 硬件时基计数（PIT 中断递增） */
 
+/* ── 里程累计（PIT 中断内累加，正负号代表方向） ── */
+extern volatile int32 encoder_total_lr;   /* 左轮累计编码器脉冲 */
+extern volatile int32 encoder_total_rr;   /* 右轮累计编码器脉冲 */
+
 void Motor_Init(void);
 void encoder_init(void);
 void motor1_control(int16 motor_duty);
 void motor2_control(int16 motor_duty);
 int16 motor_get_encoder_lr(void);    /* 诊断：左轮 5ms 编码器计数 */
 int16 motor_get_encoder_rr(void);    /* 诊断：右轮 5ms 编码器计数 */
+void motor_reset_mileage(void);      /* 清零左右轮里程累计（阶段切换用） */
 void pit_handler(void);
 
 #endif

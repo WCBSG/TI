@@ -14,7 +14,7 @@
 *   [19]    px_per_cm (每 cm 像素数)
 *   [20]    ball_target_cm_x10 (任务6 球目标位置, 0.1cm)
 *   [21]    kd_yaw (陀螺仪阻尼系数, 0-200)
-*   [22-27] (保留)
+*   [22-27] mileage: 左/右每cm脉冲, 弯道spd/diff, 直线/弯道长(cm)
 *   [28]    CONFIG_TAG  (0x5AA5)
 *   [29]    XOR 校验和 (slot 0-28)
 *   [30-31] (保留)
@@ -28,6 +28,7 @@
 #include "line_ctrl.h"    /* steer_pid */
 #include "menu_defs.h"    /* base_speed */
 #include "ball_ctrl.h"    /* ball_pid + 标定参数 */
+#include "mileage.h"      /* 里程/弯道过弯参数 */
 
 #define FLASH_ADDR   0x0000
 #define CONFIG_TAG   0x5AA5
@@ -54,16 +55,16 @@ static uint8 validate_bounds(void)
         0,0,0,  0, -2000, 0,  0,0,0,0,0,0,
         /* ball Kp/Ki/Kd  OutMax  OutMin  | 标定 */
         0,0,0,  0, -500,  1500, 0, 1, -50,   /* [17] servo_center_duty 按 300Hz(0.5~2.5ms=1500~7500) */
-        /* [21] kd_yaw, 保留22-27 */
-        0,0,0,0,0,0,0
+        /* [21] kd_yaw | [22-27] mileage: 每cm脉冲, 弯道spd/diff, 直线/弯道长 */
+        0,  1, 1,  0, 0,  0, 0
     };
     static const int16 hi[] = {
         /* steer */
         200,200,200, 2000, 0, 6000,  0,0,0,0,0,0,
         /* ball */
         200,200,200, 500, 0,  7500, 320, 200, 50,   /* [17] servo_center_duty 300Hz 上限 */
-        /* [21] kd_yaw, 保留22-27 */
-        200,0,0,0,0,0,0
+        /* [21] kd_yaw | [22-27] mileage */
+        200, 1000, 1000,  6000, 3000,  300, 300
     };
     for (idx = 0; idx <= 27; idx++)
         if (flash_buff[idx] < lo[idx] || flash_buff[idx] > hi[idx])
@@ -101,11 +102,14 @@ void config_save(void)
     down_buff[19] = px_per_cm;
     down_buff[20] = ball_target_cm_x10;
 
-    /* [21] kd_yaw 陀螺仪阻尼, [22-27] 保留 */
+    /* [21] kd_yaw 陀螺仪阻尼, [22-27] mileage 里程/弯道参数 */
     down_buff[21] = kd_yaw;
-    down_buff[22] = 0; down_buff[23] = 0;
-    down_buff[24] = 0; down_buff[25] = 0;
-    down_buff[26] = 0; down_buff[27] = 0;
+    down_buff[22] = pulses_per_cm_lr;
+    down_buff[23] = pulses_per_cm_rr;
+    down_buff[24] = curve_spd;
+    down_buff[25] = curve_diff;
+    down_buff[26] = straight_len_cm;
+    down_buff[27] = curve_len_cm;
 
     down_buff[28] = CONFIG_TAG;
     down_buff[29] = calc_checksum(down_buff);

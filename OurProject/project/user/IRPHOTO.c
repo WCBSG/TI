@@ -20,7 +20,7 @@ void IRPHOTO_Init(void)
 // 正值=偏右，负值=偏左，0=居中
 int calc_error(int s[8])
 {
-    static const int8 weight[8] = { -7, -5, -3, -1, 1, 3, 5, 7 };
+    static const int8 weight[8] = { -10, -7, -4, -1, 1, 4, 7, 10 };
     int error = 0;
     int i;
     for (i = 0; i < 8; i++)

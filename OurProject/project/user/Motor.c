@@ -2,6 +2,8 @@
 
 static int16 encoder_lr, encoder_rr;  /* PIT 中断内采样，供诊断显示 */
 volatile uint32 pit_tick = 0;         /* 5ms 硬件时基 */
+volatile int32 encoder_total_lr = 0;  /* 左轮累计脉冲（PIT 内累加） */
+volatile int32 encoder_total_rr = 0;  /* 右轮累计脉冲（PIT 内累加） */
 
 void Motor_Init(void)
 {
@@ -38,15 +40,26 @@ void motor2_control(int16 motor_duty) { motor_control(DIR_2, PWM_2, motor_duty);
 int16 motor_get_encoder_lr(void) { return encoder_lr; }
 int16 motor_get_encoder_rr(void) { return encoder_rr; }
 
+/** 清零左右轮里程累计（阶段切换时调用，需关中断防 PIT 打断） */
+void motor_reset_mileage(void)
+{
+    EA = 0;
+    encoder_total_lr = 0;
+    encoder_total_rr = 0;
+    EA = 1;
+}
+
 /*
- * PIT 5ms 中断：硬件计时 + 编码器采样。
- * 已删除双电机速度闭环（改差速开环），编码器仅用于诊断显示。
+ * PIT 5ms 中断：硬件计时 + 编码器采样 + 里程累计。
+ * 双电机速度闭环已删（差速开环），编码器瞬时值供诊断，累计值供里程。
  */
 void pit_handler(void)
 {
     pit_tick++;
     encoder_lr = encoder_get_count(ENCODER_DIR_LR);
     encoder_rr = encoder_get_count(ENCODER_DIR_RR);
+    encoder_total_lr += encoder_lr;    /* 累加里程（正负号=方向） */
+    encoder_total_rr += encoder_rr;
     encoder_clear_count(ENCODER_DIR_LR);
     encoder_clear_count(ENCODER_DIR_RR);
 }

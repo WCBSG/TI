@@ -21,6 +21,7 @@
 #include "WcTFT180.h"
 #include "imu_ctrl.h"    /* imu_ctrl_tick, imu_gyro_dps_x10, imu_yaw_deg */
 #include "cmd_ctrl.h"    /* cmd_poll：结果页也响应串口命令 */
+#include "mileage.h"     /* 里程/弯道过弯参数 */
 
 /* ── 调试开关 ──
  * 停车/脱轨判定已删（专注巡线调参），任务只靠 30s 超时停；停车逻辑后续恢复 */
@@ -29,6 +30,15 @@
 /* ── 全局状态 ── */
 static TaskId current_task = TASK_IDLE;
 static int    last_result  = TASK_RESULT_RUNNING;
+
+/* ── 巡线阶段状态机（里程开环过弯） ── */
+typedef enum {
+    PH_STRAIGHT1,   /* AB 直线：红外巡线 */
+    PH_CURVE1,      /* B 半圆：固定差速右转 */
+    PH_STRAIGHT2,   /* CD 直线：红外巡线 */
+    PH_CURVE2,      /* D 半圆：固定差速右转 */
+    PH_STOP         /* 一圈完成：停车 */
+} DrivePhase;
 
 /* ═══════════════════════════════════════════════════════════
  * 通用巡线引擎：任务 2/5/6 共用
@@ -42,8 +52,14 @@ static int line_drive_run(uint8 enable_ball, int16 ball_target)
     uint16 sec, tenth, imu_dt;
     int    result = TASK_RESULT_OK;
 
+    /* ── 阶段状态机 ── */
+    DrivePhase phase = PH_STRAIGHT1;
+    int32 mile_cm;                   /* 当前阶段里程 cm（右轮=内轮更准） */
+
     /* 任务 2/5/6 超时保护（整圈 30s，任务 2 限 20s 但留余量） */
     const uint32 line_timeout_ms = 30000UL;
+
+    /* mileage 参数已在 main 里 mileage_load() 加载（pulses_per_cm_rr 等全局） */
 
     motor1_control(0);
     motor2_control(0);
@@ -54,6 +70,7 @@ static int line_drive_run(uint8 enable_ball, int16 ball_target)
     WcTFT_PrintCenter(0, (enable_ball ? (ball_target ? "TASK 6" : "TASK 5") : "TASK 2"));
 
     EA = 0; start_tick = pit_tick; last_imu_tick = pit_tick; EA = 1;
+    motor_reset_mileage();
 
     while (1)
     {
@@ -65,10 +82,58 @@ static int line_drive_run(uint8 enable_ball, int16 ball_target)
 
         IRPHOTO_Read(s);
 
-        /* 巡线 + 可选球稳 */
-        err = calc_error(s);
-        line_ctrl_set(err, base_speed);
-        if (enable_ball) ball_ctrl_tick();
+        /* 当前阶段里程（右轮=内轮，弯道里程更准） */
+        EA = 0; mile_cm = encoder_total_rr / pulses_per_cm_rr; EA = 1;
+
+        /* ── 阶段状态机：直线红外巡线 / 弯道固定差速 ── */
+        switch (phase)
+        {
+            case PH_STRAIGHT1:   /* AB 直线：红外巡线 */
+                err = calc_error(s);
+                line_ctrl_set(err, base_speed);
+                if (enable_ball) ball_ctrl_tick();
+                if (mile_cm >= straight_len_cm)
+                {
+                    phase = PH_CURVE1;  motor_reset_mileage();
+                }
+                break;
+
+            case PH_CURVE1:      /* B 半圆（右转）：固定差速，左快右慢 */
+                motor1_control(curve_spd);
+                motor2_control(-(curve_spd - curve_diff));
+                if (enable_ball) ball_ctrl_tick();
+                if (mile_cm >= curve_len_cm)
+                {
+                    phase = PH_STRAIGHT2;  motor_reset_mileage();
+                }
+                break;
+
+            case PH_STRAIGHT2:   /* CD 直线：红外巡线 */
+                err = calc_error(s);
+                line_ctrl_set(err, base_speed);
+                if (enable_ball) ball_ctrl_tick();
+                if (mile_cm >= straight_len_cm)
+                {
+                    phase = PH_CURVE2;  motor_reset_mileage();
+                }
+                break;
+
+            case PH_CURVE2:      /* D 半圆（右转）：固定差速 */
+                motor1_control(curve_spd);
+                motor2_control(-(curve_spd - curve_diff));
+                if (enable_ball) ball_ctrl_tick();
+                if (mile_cm >= curve_len_cm)
+                {
+                    phase = PH_STOP;  motor_reset_mileage();
+                }
+                break;
+
+            case PH_STOP:        /* 一圈完成：停车 */
+                motor1_control(0);
+                motor2_control(0);
+                result = TASK_RESULT_OK;
+                goto drive_done;
+        }
 
         system_delay_ms(10);
         if (++display_cd >= 10)              /* 每 100ms 刷新显示 */
@@ -124,6 +189,8 @@ static int line_drive_run(uint8 enable_ball, int16 ball_target)
                 n += zf_sprintf((int8 *)(dbg + n), "BASE=%d ", (int32)base_speed);
                 n += zf_sprintf((int8 *)(dbg + n), "YAW=%d ", (int32)(imu_yaw_x100 / 100));   /* 航向度 */
                 n += zf_sprintf((int8 *)(dbg + n), "GZ=%d ", (int32)imu_gyro_dps_x10);       /* 0.1°/s */
+                n += zf_sprintf((int8 *)(dbg + n), "PH=%d ", (int32)phase);                  /* 阶段号 */
+                n += zf_sprintf((int8 *)(dbg + n), "M=%d ", (int32)mile_cm);                 /* 里程 cm */
                 if (enable_ball)
                 {
                     n += zf_sprintf((int8 *)(dbg + n), "B=%d ", (int32)ball_cm_x10);
@@ -149,6 +216,7 @@ static int line_drive_run(uint8 enable_ball, int16 ball_target)
         }
     }
 
+drive_done:
     motor1_control(0);
     motor2_control(0);
     if (enable_ball) ball_ctrl_stop();

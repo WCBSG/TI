@@ -17,6 +17,7 @@
 #include "protocol.h"
 #include "task_sched.h"    /* task_sched_set */
 #include "ball_ctrl.h"     /* ball_target_cm_x10 */
+#include "mileage.h"       /* 里程/弯道过弯参数 */
 
 
 /* ═══════════════════════════════════════════════════════════
@@ -41,6 +42,17 @@ static const MenuItem ball_items[] = {
 };
 static MenuPage page_ball = MENU_PAGE("Ball", ball_items, 2);
 
+/* ── Mileage 页（编码器里程过弯参数，CALM 命令标定 p/cm） ── */
+static const MenuItem mile_items[] = {
+    MENU_ITEM_VAL_RANGE(1, "P/cm L", &pulses_per_cm_lr, 1, 1, 1000),
+    MENU_ITEM_VAL_RANGE(2, "P/cm R", &pulses_per_cm_rr, 1, 1, 1000),
+    MENU_ITEM_VAL_RANGE(3, "CvSpd", &curve_spd, 100, 0, 6000),
+    MENU_ITEM_VAL_RANGE(4, "CvDiff", &curve_diff, 50, 0, 3000),
+    MENU_ITEM_VAL_RANGE(5, "Straight", &straight_len_cm, 10, 50, 300),
+    MENU_ITEM_VAL_RANGE(6, "Curve", &curve_len_cm, 5, 50, 300),
+};
+static MenuPage page_mile = MENU_PAGE("Mileage", mile_items, 6);
+
 /* ── LED 灯带亮度（PA2 PWM 输出，0-10000，直接主菜单编辑） ── */
 int16 led_duty = 0;   /* 灯带亮度 duty，main 菜单循环实时写入 PA2 PWM */
 
@@ -51,6 +63,7 @@ int16 led_duty = 0;   /* 灯带亮度 duty，main 菜单循环实时写入 PA2 P
 
 static void cb_steer(void)     { Menu_Push(&page_steer); }
 static void cb_ball(void)      { Menu_Push(&page_ball); }
+static void cb_mile(void)      { Menu_Push(&page_mile); }
 
 
 /* ═══════════════════════════════════════════════════════════
@@ -83,6 +96,7 @@ static const MenuItem main_items[] = {
     MENU_ITEM(1, "Steer PID",     cb_steer),
     MENU_ITEM_VAL_RANGE(2, "Spd", &base_speed, 100, 0, 6000),
     MENU_ITEM(3, "Ball",          cb_ball),
-    MENU_ITEM_VAL_RANGE(4, "Led", &led_duty, 100, 0, 10000),
+    MENU_ITEM(4, "Mileage",       cb_mile),
+    MENU_ITEM_VAL_RANGE(5, "Led", &led_duty, 100, 0, 10000),
 };
-MenuPage page_main = MENU_PAGE("Main Menu", main_items, 4);
+MenuPage page_main = MENU_PAGE("Main Menu", main_items, 5);
