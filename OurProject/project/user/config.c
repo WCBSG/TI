@@ -53,7 +53,7 @@ static uint8 validate_bounds(void)
         /* steer Kp/Ki/Kd  OutMax  OutMin  base  | 保留6-11 */
         0,0,0,  0, -2000, 0,  0,0,0,0,0,0,
         /* ball Kp/Ki/Kd  OutMax  OutMin  | 标定 */
-        0,0,0,  0, -500,  250, 0, 1, -50,
+        0,0,0,  0, -500,  1500, 0, 1, -50,   /* [17] servo_center_duty 按 300Hz(0.5~2.5ms=1500~7500) */
         /* [21] kd_yaw, 保留22-27 */
         0,0,0,0,0,0,0
     };
@@ -61,7 +61,7 @@ static uint8 validate_bounds(void)
         /* steer */
         200,200,200, 2000, 0, 4000,  0,0,0,0,0,0,
         /* ball */
-        200,200,200, 500, 0,  1250, 320, 200, 50,
+        200,200,200, 500, 0,  7500, 320, 200, 50,   /* [17] servo_center_duty 300Hz 上限 */
         /* [21] kd_yaw, 保留22-27 */
         200,0,0,0,0,0,0
     };

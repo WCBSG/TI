@@ -20,10 +20,11 @@
 
 /* ── 舵机硬件 ── */
 #define SERVO_PWM           (PWME_CH1P_PA0)   /* 主板舵机接口 PWM1 = A0 */
-#define SERVO_FREQ          50
-#define SERVO_DUTY_MIN      250               /* 0.5ms 脉宽（角度最小端） */
-#define SERVO_DUTY_MAX      1250              /* 2.5ms 脉宽（角度最大端） */
-#define SERVO_DUTY_CENTER   750               /* 1.5ms 脉宽（中位，摆杆水平） */
+#define SERVO_FREQ          300               /* 舵机+灯带共 300Hz（PWME 同组同频，仅数字舵机适用） */
+/* 300Hz 周期=3.33ms，脉宽→duty（PWM_DUTY_MAX=10000）：0.5ms=1500 / 1.5ms=4500 / 2.5ms=7500 */
+#define SERVO_DUTY_MIN      1500              /* 0.5ms 脉宽（角度最小端） */
+#define SERVO_DUTY_MAX      7500              /* 2.5ms 脉宽（角度最大端） */
+#define SERVO_DUTY_CENTER   4500              /* 1.5ms 脉宽（中位，摆杆水平） */
 
 /* ── 标定参数（config 持久化，菜单可调） ── */
 extern int16 servo_center_duty;   /* 舵机中位 duty（摆杆水平时的脉宽） */

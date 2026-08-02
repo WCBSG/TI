@@ -50,6 +50,13 @@ static const MenuItem protocol_items[] = {
 };
 static MenuPage page_protocol = MENU_PAGE("Protocol", protocol_items, 5);
 
+/* ── LED 灯带调试页（PA2 PWM 输出，亮度 0-10000） ── */
+int16 led_duty = 0;   /* 灯带亮度 duty，main 菜单循环实时写入 PA2 PWM */
+static const MenuItem led_items[] = {
+    MENU_ITEM_VAL_RANGE(1, "Led", &led_duty, 100, 0, 10000),
+};
+static MenuPage page_led = MENU_PAGE("LED", led_items, 1);
+
 
 /* ═══════════════════════════════════════════════════════════
  * 回调：子页导航
@@ -58,6 +65,7 @@ static MenuPage page_protocol = MENU_PAGE("Protocol", protocol_items, 5);
 static void cb_steer(void)     { Menu_Push(&page_steer); }
 static void cb_speed(void)     { Menu_Push(&page_speed); }
 static void cb_protocol(void)  { Menu_Push(&page_protocol); }
+static void cb_led(void)       { Menu_Push(&page_led); }
 
 
 /* ═══════════════════════════════════════════════════════════
@@ -90,5 +98,6 @@ static const MenuItem main_items[] = {
     MENU_ITEM(1, "Steer PID",  cb_steer),
     MENU_ITEM(2, "Base Speed", cb_speed),
     MENU_ITEM(3, "Protocol",   cb_protocol),
+    MENU_ITEM(4, "LED",        cb_led),
 };
-MenuPage page_main = MENU_PAGE("Main Menu", main_items, 3);
+MenuPage page_main = MENU_PAGE("Main Menu", main_items, 4);

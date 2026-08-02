@@ -26,8 +26,9 @@ SCORE_MIN   = 0.70       # 置信度阈值
 
 W, H        = 320, 240    # 暂时全帧 — 调试裁剪区域
 CX          = W // 2       # 160
-CROP_Y1     = 80           # 计划裁剪上边界
-CROP_Y2     = 160          # 计划裁剪下边界 (80+80)
+
+# 推理 ROI（模型输入裁剪区域）——必须与模型输入 [1,32,320,3] 完全一致（320×32），否则缩放失真导致 X 偏移
+ROI_X, ROI_Y, ROI_W, ROI_H = 0, H//2-16, 320, 32   # 320×32 等比匹配模型，y ∈ [104, 136]
 
 CLR_BALL    = (0, 255, 0)
 CLR_TEXT    = (255, 255, 255)
@@ -57,12 +58,13 @@ def send_none():
 def main():
     print("\n  OpenART TFLite Ball Detect + UART12")
     print("  Model: %s" % MODEL_PATH)
-    print("  Crop: %dx%d  Score min: %.2f" % (W, H, SCORE_MIN))
+    print("  ROI: %dx%d  Score min: %.2f" % (ROI_W, ROI_H, SCORE_MIN))
     print("  " + "-" * 40)
 
     sensor.reset()
     sensor.set_pixformat(sensor.RGB565)
     sensor.set_framesize(sensor.QVGA)       # 320×240 全帧（调试裁剪区域）
+    sensor.set_brightness(500)
     # sensor.set_windowing((0, 80, 320, 80))  # 确认裁剪区域后再启用
     sensor.skip_frames(time=500)
 
@@ -80,9 +82,8 @@ def main():
         img = sensor.snapshot()
 
         # 缩放推理（缩小图像加速）
-        # 模型输入为 [1, 40, 160, 1] 灰度单通道，必须显式转灰度再传入
-        img_small = img.copy(roi=(0, 80, 320, 80))
-        img_small.to_grayscale()
+        # 模型输入为 [1, 32, 320, 3] RGB 三通道——直接取 ROI 传入，不转灰度
+        img_small = img.copy(roi=(ROI_X, ROI_Y, ROI_W, ROI_H))
 
         best_cx   = 0
         best_score = 0.0
@@ -94,9 +95,9 @@ def main():
             if score < SCORE_MIN:
                 continue
 
-            # 归一化坐标 → 像素坐标
-            bx = int(x1 * W)
-            bw = int((x2 - x1) * W)
+            # 归一化坐标 → 全帧像素（ROI_X=0，X 即全帧 x；ROI 等比映射保证 X 准确）
+            bx = int(x1 * ROI_W)
+            bw = int((x2 - x1) * ROI_W)
 
             cx = bx + bw // 2
 
@@ -111,19 +112,13 @@ def main():
         else:
             send_none()
 
-        # ── 裁剪区域指示线 ──
-        img.draw_line(0, CROP_Y1, W-1, CROP_Y1, color=(255,255,0), thickness=1)  # 上边界
-        img.draw_line(0, CROP_Y2, W-1, CROP_Y2, color=(255,255,0), thickness=1)  # 下边界
+        # ── 辅助线：中心线 + 实际推理 ROI 边界（青线） ──
+        img.draw_line(W//2, 0, W//2, H-1, color=(255,0,0), thickness=1)  # 竖中线
+        img.draw_line(0, H//2, W-1, H//2, color=(0,0,255), thickness=1)  # 横中线
+        img.draw_line(0, ROI_Y, W-1, ROI_Y, color=(0,255,255), thickness=1)
+        img.draw_line(0, ROI_Y + ROI_H, W-1, ROI_Y + ROI_H, color=(0,255,255), thickness=1)
 
-        img.draw_line(W//2, 0, W//2, H-1, color=(255,0,0), thickness=1) #竖中线
-        img.draw_line(0, H//2, W-1, H//2, color=(0,0,255), thickness=1) #横中线
-        img.draw_line(0, H//2-32, W-1, H//2-32, color=(0,0,255), thickness=1)
-        img.draw_line(0, H//2-5, W-1, H//2-5, color=(0,0,255), thickness=1)
-
-        img.draw_string(2, CROP_Y1-14, "crop y=%d" % CROP_Y1, color=(255,255,0), scale=1)
-        img.draw_string(2, CROP_Y2+2,  "crop y=%d" % CROP_Y2, color=(255,255,0), scale=1)
-
-        # ── 调试：在帧上画检测结果 ──
+        # ── 调试：在帧上画检测结果（Y 固定 H//2 为设计，X 由等比 ROI 映射保证准确） ──
         if found:
             img.draw_cross(best_cx, H // 2,
                            color=CLR_BALL, size=5, thickness=2)

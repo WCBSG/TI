@@ -20,6 +20,10 @@
 #include "ball_ctrl.h"
 #include "imu_ctrl.h"
 
+/* ── LED 灯带 PWM（PA2 = PWME_CH2，300Hz 与舵机同 PWME 组同频） ── */
+#define LED_PWM_PIN    (IO_PA2)
+#define LED_PWM_FREQ   300
+
 
 /* ═══════════════════════════════════════════════════════════ */
 void main(void)
@@ -44,6 +48,9 @@ void main(void)
 
     imu_ctrl_init();   /* 陀螺仪：硬件 SPI3 + 静止 1s 零点标定（失败不阻塞） */
 
+    /* LED 灯带 PWM（PA2，300Hz 与舵机同频），亮度由 LED 调试页调节 */
+    //pwm_init(LED_PWM_PIN, LED_PWM_FREQ, 0);
+    gpio_init(LED_PWM_PIN, GPO, 1, GPO_PUSH_PULL);
     pit_ms_init(PIT_ENCODER, 5, pit_handler);
 
     /* ── 启动主菜单 ── */
@@ -83,6 +90,9 @@ void main(void)
             }
 
             Protocol_ReadBall(&proto_ball_x);  /* 菜单阶段消费球坐标（调试） */
+
+            /* 灯带亮度实时写入 PA2 PWM（LED 调试页调节） */
+            pwm_set_duty(LED_PWM_PIN, (uint32)led_duty);
 
             /* 每 100ms 输出 OpenART 球坐标到 USB-CDC（验证通信 + 调试球稳） */
             if (++ball_dbg_cd >= 10)
