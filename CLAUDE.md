@@ -230,6 +230,7 @@ _archive/              ← 存档（M0项目/K230项目/模型项目）
 - **STC32 下载**：按住 P32 上电进入 USB 下载模式（无需专用下载器）；更推荐 **AiCube-ISP MCP 自动烧录**（见下）
 - **STC32 头文件路径**：限定在 `OurProject/libraries` 与 `OurProject/project` 内，避免多副本同名文件导致跳转歧义
 - **源码编码：全库 UTF-8 统一**（libraries/user/WcLibraries 已从 GB2312 转 UTF-8，编译不受影响，仅注释编码）。**坑**：Keil（MDK）编辑器默认按 GBK 解析，UTF-8 注释在 Keil 里显示乱码——需 Edit → Configuration → Editor → Encoding 改 UTF-8（VSCode 无此问题）。新增/修改源码保持 UTF-8 无 BOM，勿混入 GB2312
+- **⚠️ 调试输出：一定不要吝啬 debug 消息**（用户强调）。任何测试/标定功能必须**过程中持续回显**关键状态（每 100ms 一帧：YAW/里程/差速/阶段等），不能只结束时回显一次——否则上位机无法判断"是否偏了/闭环是否生效"，只能盲调。曾因 CALM 标定只结束回显一次、且过程死循环无回显，导致多次"试了好久没反应"。**串口调试帧、回显消息永远多发、发全**
 
 > **STC32 维护者：why-456**。
 

@@ -16,7 +16,7 @@
 int16 pulses_per_cm_lr = 100;    /* [22] 左轮每 cm 脉冲 */
 int16 pulses_per_cm_rr = 100;    /* [23] 右轮每 cm 脉冲 */
 int16 curve_spd        = 2500;   /* [24] 弯道基准 duty */
-int16 curve_diff       = 800;    /* [25] 弯道差速 */
+int16 curve_diff       = 1300;   /* [25] 弯道差速：800 转弯半径太大出线，调大缩小半径 */
 int16 straight_len_cm  = 150;    /* [26] AB/CD 直线长 cm */
 int16 curve_len_cm     = 157;    /* [27] 半圆弧长 cm */
 

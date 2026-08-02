@@ -123,10 +123,12 @@ static void cmd_spin(uint8 dir)
  *   车放赛道直线段，固定走 CALM_TARGET 脉冲（约等距离），
  *   上位机量实际 cm 后用 SETCM <p/cm> 写入。
  *
- * 陀螺仪直线：yaw 偏差 → 差速微调。
- *   yaw>0(偏右) → 需右转回正 → 左快右慢 → 左轮 spd、右轮 spd-diff。
- *   比例 KGYRO_CAL 小，防振荡（标定只要方向大致直，不需精确闭环）。 */
-#define CALM_TARGET      500      /* 目标右轮脉冲 */
+ * 陀螺仪直线（方向已 SPIN 实测核对）：
+ *   SPIN 实测：motor1(+D)→车右转（左轮快=右转）；motor2(-D)→车左转（右轮快=左转）
+ *   yaw>0(车偏右) → 需左转回正 → 右轮快左轮慢 → ld=spd-diff, rd=spd+diff
+ *   （曾写反 ld=spd+diff → 正反馈越偏越右，已修正）
+ * 比例 CALM_YAW_K 小，防振荡（标定只要方向大致直，不需精确闭环）。 */
+#define CALM_TARGET      300      /* 目标右轮脉冲（标定走短距离，5s 内完成） */
 #define CALM_YAW_K       3        /* yaw 0.1° → 差速 duty（小值防振荡） */
 
 static void cmd_calibrate(void)
@@ -134,27 +136,61 @@ static void cmd_calibrate(void)
     int16 spd = (base_speed > 0) ? base_speed : 2000;
     int32 err_yaw_x10, diff, ld, rd;
 
+    uint32 cal_t0;
+    uint8  dbg_cd = 0;
+
     motor_reset_mileage();
     imu_ctrl_reset_yaw();            /* 当前朝向=目标，保持直线 */
     system_delay_ms(50);             /* 让 yaw 稳定 */
+    EA = 0; cal_t0 = pit_tick; EA = 1;
 
     while (1)
     {
-        /* 到目标脉冲停 */
-        EA = 0; if (encoder_total_rr >= CALM_TARGET) { EA = 1; break; } EA = 1;
+        /* 到目标脉冲停（编码器方向可能为负，用绝对值判断防死循环） */
+        EA = 0;
+        if (encoder_total_rr >= CALM_TARGET || -encoder_total_rr >= CALM_TARGET) { EA = 1; break; }
+        /* 超时保护：5s 仍不到目标 → 停电机退出（标定走短距离即可） */
+        if ((pit_tick - cal_t0) * 5 > 5000UL) { EA = 1; break; }
+        EA = 1;
 
         imu_ctrl_tick(10);
         err_yaw_x10 = imu_yaw_x100 / 10;       /* 0.1° */
 
-        /* 直线差速：右偏(yaw>0)→右转回正→左快右慢 */
+        /* 直线差速（陀螺仪"回正"语义，勿与 line_ctrl"追线"混同）：
+         *   车头偏左(yaw<0) → 应右转回正 → 左快右慢 → ld=spd-D(大) rd=spd+D(小)
+         *   车头偏右(yaw>0) → 应左转回正 → 右快左慢 → ld=spd-D(小) rd=spd+D(大)
+         *   → ld = spd - diff, rd = spd + diff
+         *   （line_ctrl 是"追线"语义方向相反，两者勿混）
+         * 限幅：diff 最多 ±600（防 PWM 越界 + 防振荡） */
         diff = (int32)CALM_YAW_K * err_yaw_x10;
-        ld = spd + diff;                        /* 左轮 */
-        rd = spd - diff;                        /* 右轮 */
-        if (ld > 4000) ld = 4000;
+        if (diff >  600) diff =  600;
+        if (diff < -600) diff = -600;
+        ld = spd - diff;                        /* 左轮 */
+        rd = spd + diff;                        /* 右轮 */
+        if (ld > 6000) ld = 6000;               /* 严格钳位，PWM_DUTY_MAX=10000 */
+        if (ld < 0)    ld = 0;
+        if (rd > 6000) rd = 6000;
         if (rd < 0)    rd = 0;
 
         motor1_control((int16)ld);             /* 左轮正 duty 前进 */
         motor2_control(-(int16)rd);            /* 右轮负 duty 前进 */
+
+        /* 每 100ms 回显一次，方便上位机确认 yaw 纠偏是否生效 */
+        if (++dbg_cd >= 10)
+        {
+            dbg_cd = 0;
+            {
+                char dbg[96];
+                uint32 n = 0;
+                EA = 0;
+                n += zf_sprintf((int8 *)(dbg + n), "YAW=%d P=%d D=%d\n",
+                                (int32)(imu_yaw_x100 / 100),   /* 度 */
+                                (int32)encoder_total_rr,       /* 脉冲 */
+                                (int32)diff);                  /* 差速 */
+                EA = 1;
+                usb_cdc_write_buffer((const uint8 *)dbg, (uint16)n);
+            }
+        }
         system_delay_ms(10);
     }
     motor1_control(0);
@@ -162,12 +198,12 @@ static void cmd_calibrate(void)
 
     {
         int32 pulses;
-        char buf[64];
+        char buf[96];          /* 容量充足，防 UTF-8 中文越界 */
         uint32 n = 0;
-        EA = 0; pulses = encoder_total_rr; EA = 1;
-        if (pulses < 0) pulses = -pulses;
+        EA = 0; pulses = encoder_total_rr; EA = 1;   /* 带符号原始值，确认方向 */
         n += zf_sprintf((int8 *)(buf + n),
-                        "[CALM] pulses=%d, 量实际cm后发 SETCM <p/cm>\n", (int32)pulses);
+                        "[CALM] pulses=%d (neg=reverse), report cm then SETCM <p/cm>\n",
+                        (int32)pulses);
         usb_cdc_write_buffer((const uint8 *)buf, (uint16)n);
     }
 }

@@ -18,6 +18,11 @@ int16 line_duty_lr = 0;   /* 诊断：最近一次左轮输出 duty */
 int16 line_duty_rr = 0;   /* 诊断：最近一次右轮输出 duty */
 int16 kd_yaw = 0;            /* 陀螺仪阻尼系数（默认 0=不生效） */
 
+/* 差速渐变率：每 10ms 输出最多变化量（小=更平滑，大=响应快）
+ * 200 → 满差速约 100ms 到位；调小更顺但弯道响应慢 */
+#define STEER_RAMP   200
+static int32 steer_last_out = 0;   /* 上次 eff_out（渐变用） */
+
 void line_ctrl_init(void)
 {
     steer_pid.Kp     = 180;   /* 弯道转弯角速度需要(实测>20°/s 才过弯)，rate limit 削弱已回退 */
@@ -25,6 +30,7 @@ void line_ctrl_init(void)
     steer_pid.Kd     = 50;    /* 用 Kd 抑制差速跳变卡顿（替代 rate limit，不砍弯道响应） */
     steer_pid.OutMax = 2000;  /* 差速上限 66%，给足转向力度 */
     steer_pid.OutMin = -2000;
+    steer_last_out   = 0;
 
     if (config_valid())
     {
@@ -39,7 +45,7 @@ void line_ctrl_init(void)
 
 void line_ctrl_set(int error, int base_speed)
 {
-    int16 left_duty, right_duty, rev_limit, spd;
+    int16 left_duty, right_duty, spd;
     int32 eff_out;
     int   abs_err = (error < 0) ? -error : error;
 
@@ -65,17 +71,22 @@ void line_ctrl_set(int error, int base_speed)
         if (eff_out < -8000) eff_out = -8000;
     }
 
-    left_duty  = (int16)(spd - eff_out);
+    /* 差速缓慢渐变：每 10ms 最多变化 STEER_RAMP，消除 PID 瞬间大幅跳变
+     * （PID 对 err 突变一次性输出大差速 → 转向猛；渐变后转向渐进出） */
+    if (eff_out - steer_last_out >  STEER_RAMP) eff_out = steer_last_out + STEER_RAMP;
+    if (eff_out - steer_last_out < -STEER_RAMP) eff_out = steer_last_out - STEER_RAMP;
+    steer_last_out = eff_out;
+
+    /* 单轮差速：左轮固定 spd，右轮随 eff_out 变化
+     *   方向验证：eff_out>0 → right 增 → 右轮快 → 左慢右快 → 左转 ✓（与双轮一致）
+     *   eff_out<0 → right 减 → 右轮慢 → 左快右慢 → 右转 ✓
+     *   直线更顺：eff_out 小幅波动时只有右轮响应，左轮恒定 */
+    left_duty  = (int16)spd;
     right_duty = (int16)(spd + eff_out);
 
-    /*
-     * 钳位：上限 spd，下限 -spd/3（允许内侧轮适度反转，改善 0.5m 半径弯道跟踪）。
-     */
-    rev_limit = (int16)(-(spd / 3));
-    if (left_duty  > spd) left_duty  = (int16)spd;
-    if (right_duty > spd) right_duty = (int16)spd;
-    if (left_duty  < rev_limit) left_duty  = rev_limit;
-    if (right_duty < rev_limit) right_duty = rev_limit;
+    /* 钳位：右轮上限 spd*2（允许外轮加速转向），下限 spd/3 */
+    if (right_duty > (int32)spd * 2) right_duty = (int16)((int32)spd * 2);
+    if (right_duty < spd / 3) right_duty = (int16)(spd / 3);
 
     /* 记录实际输出 duty（诊断显示）。
      * ⚠️ 电机左右（SPIN 实测重新推导）：
