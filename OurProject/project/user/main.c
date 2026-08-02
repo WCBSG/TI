@@ -61,31 +61,26 @@ void main(void)
     launch_triggered = 0;
     while (1)
     {
-        uint8 ball_dbg_cd = 0;
-
-        /* ── 菜单阶段：按键导航 + 球坐标串口输出，等待 Launch 选任务 ── */
+        /* ── 菜单阶段：按键导航，等待 Launch 选任务 ── */
         while (!launch_triggered)
         {
             button_control(KEY_REPEAT_KEY1 | KEY_REPEAT_KEY2);
 
-            if (key1_flag) { key1_flag = 0; Menu_Inc();           }  /* Key1: 上/+ */
-            if (key2_flag) { key2_flag = 0; Menu_Dec();           }  /* Key2: 下/- */
-            if (key3_flag) { key3_flag = 0; Menu_Edit();          }  /* Key3: 确定/编辑 */
-            if (key4_flag) { key4_flag = 0; Menu_Cancel();        }  /* Key4: 取消/返回 */
+            if (key1_flag) { key1_flag = 0; Menu_Inc();           }  /* b2: 上/+ */
+            if (key2_flag) { key2_flag = 0; Menu_Dec();           }  /* b3: 下/- */
+            if (key3_flag) { key3_flag = 0; Menu_Edit();          }  /* b4: 确定/编辑 */
 
-            if (key5_flag)
+            if (key4_flag)                                       /* P3.2: 返回 */
             {
-                key5_flag = 0;
-
-                /* 主菜单按 Key5 → 保存配置并进入 Launch */
+                key4_flag = 0;
                 if (Menu_IsTop(&page_main))
                 {
-                    config_save();
+                    config_save();              /* 主菜单按返回 → 保存配置并进 Launch */
                     Menu_Push(&page_launch);
                 }
                 else
                 {
-                    Menu_Home(&page_main);
+                    Menu_Cancel();              /* 子页按返回 → 回上层 */
                 }
             }
 
@@ -93,19 +88,6 @@ void main(void)
 
             /* 灯带亮度实时写入 PA2 PWM（LED 调试页调节） */
             pwm_set_duty(LED_PWM_PIN, (uint32)led_duty);
-
-            /* 每 100ms 输出 OpenART 球坐标到 USB-CDC（验证通信 + 调试球稳） */
-            if (++ball_dbg_cd >= 10)
-            {
-                ball_dbg_cd = 0;
-                {
-                    char dbg[64];
-                    uint32 n = 0;
-                    n += zf_sprintf((int8 *)(dbg + n), "PX=%d V=%d\n",
-                                    (int32)proto_ball_x, (int32)proto_ball_valid);
-                    usb_cdc_write_buffer((const uint8 *)dbg, (uint16)n);
-                }
-            }
 
             system_delay_ms(10);
         }

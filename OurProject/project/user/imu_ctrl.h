@@ -2,7 +2,7 @@
 * 文件名称          imu_ctrl.h
 * 说明              陀螺仪（IMU660RA）控制接口 — 车体航向反馈
 *
-* 硬件：IMU660RA 六轴（陀螺仪+加速度计），硬件 SPI3（库默认引脚）
+* 硬件：IMU660RB 六轴（陀螺仪+加速度计），硬件 SPI3（库默认引脚）
 *   SCL/SPC = P87(SPI3_SCK)   SDA/SDI = P85(SPI3_MOSI)
 *   SA0/SDO = P86(SPI3_MISO)  CS      = P34
 *   VCC=3V3  GND=地   INT2=P36（暂不使用，轮询读取）

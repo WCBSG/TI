@@ -2,8 +2,8 @@
 
 // 八路红外循迹传感器引脚
 static const gpio_pin_enum ir_pins[8] = {
-    IO_P87, IO_P85, IO_P36, IO_P34,
-    IO_PA1, IO_PA3, IO_PA5, IO_PA7,
+    IO_P94, IO_P54, IO_P93, IO_P92,
+    IO_P14, IO_P11, IO_P07, IO_P06,
 };
 
 void IRPHOTO_Init(void)

@@ -168,7 +168,7 @@ OPenMV RT5/           ← 图传端 MicroPython 代码（OpenMV IDE 开发；芯
   omv-rt-visual_module/ ← 厂商资料（例程/固件/手册，不纳入版本控制）
 
 OpenART Plus/          ← 识别端 MicroPython 代码（OpenMV IDE 开发）
-  camera_openart.py    ← 主程序：TFLite 模型钢球检测 + UART 输出
+  main.py              ← 主程序：TFLite 模型钢球检测 + UART 输出
   cmm_cfg.csv          ← 引脚映射配置（LED/UART/I2C/SPI/ADC/PWM）
   cmm_load.py          ← 引脚映射加载器
   stubs/               ← Python 类型存根（sensor/image/machine/time/cmm）
@@ -252,8 +252,9 @@ _archive/              ← 存档（M0项目/K230项目/模型项目）
 |------|------|
 | 任务框架 task_sched（2/3/5/6） | ✅ 就绪（5/6 复用巡线+球稳引擎，`DEBUG_LINE_FOREVER` 调试中） |
 | 差速开环巡线 line_ctrl | ✅ 就绪（弯道自适应减速 + KdYaw 陀螺仪阻尼，待真机调参） |
-| 球稳环 ball_ctrl（舵机摆杆） | ✅ 就绪（标定参数 servo_center_duty/pixel_zero/px_per_cm 待现场标） |
-| IMU660RA 陀螺仪 imu_ctrl | ✅ 就绪（硬件 SPI3，X 轴 yaw，开机静止 1s 标定） |
+| 球稳环 ball_ctrl（舵机摆杆） | ✅ 就绪（300Hz 舵机，标定参数 servo_center_duty/pixel_zero/px_per_cm 待现场标） |
+| IMU660RA 陀螺仪 imu_ctrl | ✅ 就绪（硬件 SPI3，X 轴 yaw，开机静止 1s 标定，转一圈验证 354°） |
+| 4 键菜单 KEY.c | ✅ 就绪（b2/b3/b4/P3.2，20ms 去抖 + 长按重复；LED 灯带 300Hz PWM） |
 | 调试 | ✅ USB-CDC 串口调试帧（任务运行时 100ms/帧） |
 | 真机调参 | ⚠️ 待做（KdYaw / 球稳标定 / 停车判定开启） |
 
@@ -264,6 +265,7 @@ _archive/              ← 存档（M0项目/K230项目/模型项目）
 | 文件 | 功能 | 说明 |
 |------|------|------|
 | `main.c` | 主程序 | 三态循环：菜单 ⇄ 任务 ⇄ 结果（按键导航 + Launch 启动任务） |
+| `KEY.c/h` | 4 键按键 | b2/b3/b4/P3.2，释放沿触发 + 长按自动重复 + 20ms 去抖 |
 | `IRPHOTO.c/h` | 八路红外循迹 | 8 路 GPIO 输入，加权偏差，停车标志检测 |
 | `Motor.c/h` | 电机+编码器 | PWM 驱动 + 编码器采样，PIT 5ms 时基（`pit_tick` 计数） |
 | `PID.c/h` | 位置式 PID | **唯一 PID 用于差速**（Target 恒 0）；int32 积分余数消除死区 |
@@ -272,23 +274,31 @@ _archive/              ← 存档（M0项目/K230项目/模型项目）
 | `task_sched.c/h` | 任务框架 | 任务 2/3/5/6 调度 + 结果页 + USB-CDC 串口调试帧 |
 | `imu_ctrl.c/h` | 陀螺仪 | IMU660RA 硬件 SPI3，X 轴 yaw 积分，开机静止标定 |
 | `config.c/h` | 配置持久化 | 32 槽 IAP，XOR 校验 + 边界验证 |
-| `protocol.c/h` | OpenART 协议 | UART3 接收球坐标 `B,x\n` |
-| `menu_defs.c/h` | 菜单页面 | Steer PID/Base Speed/Protocol + Launch 任务列表 |
+| `protocol.c/h` | OpenART 协议 | UART3 DMA 逐字节接收，解析 `B,<cx>\n` / `N\n` |
+| `menu_defs.c/h` | 菜单页面 | 主菜单 4 项：Steer PID(子页)/Spd/Led(直接调)/Ball(调试) + Launch 任务列表 |
 | `isr.c/h` | 中断服务 | GPIO/UART/DMA/Timer 中断向量表 |
 | `WcMenu.c/h` | 栈式菜单 | 按键导航、逐项滚动、回调执行 |
 
 ### 八路红外循迹 (IRPHOTO)
 
 ```c
+// 引脚（IRPHOTO.c 内静态表，s[i]=1 表示检测到黑线）
+static const gpio_pin_enum ir_pins[8] = {
+    IO_P87, IO_P85, IO_P36, IO_P34,
+    IO_PA1, IO_PA3, IO_PA5, IO_PA7,
+};
+
 // 8 路红外传感器读取，返回加权偏差
-int calc_error(int s[8]);  // s[i]=1 表示检测到黑线
-// 权重: {-7, -5, -3, -1, 1, 3, 5, 7}，偏差=Σ(s[i]*weight[i])
-// 正值偏右，负值偏左，0 居中
+int calc_error(int s[8]);  // 权重: {-7, -5, -3, -1, 1, 3, 5, 7}，偏差=Σ(s[i]*weight[i])
+                          // 正值偏右，负值偏左，0 居中
 
 // 停车标志检测
 int is_stop(int s[8]);  // ≥4 个连续传感器检测到黑线 → 返回 1（停车）
-                        // 全部未检测到（冲出赛道保护）→ 返回 1
+                        // 全部未检测到（冲出赛道保护）→ 返回 2（区别于停车）
+                        // 正常行驶 → 返回 0
 ```
+
+> **⚠️ 引脚复用警告**：IRPHOTO 的 P87/P85/P34 与 IMU SPI3 的 SCK/MOSI/CS 冲突（见 imu_ctrl）。硬件已确认 IR 引脚接线变更，代码当前照此定义；若 IMU 读数异常先查此处。
 
 ### 位置式 PID (PID.c)
 
@@ -346,7 +356,7 @@ void ball_ctrl_tick(void);           // 10ms：读球位→cm→PID→舵机
 void ball_ctrl_stop(void);           // 舵机回中位
 ```
 
-- 硬件：舵机 `PWME_CH1P_PA0 @ 50Hz`，duty 250(0.5ms)~1250(2.5ms)，中位 750
+- 硬件：舵机 `PWME_CH1P_PA0 @ 300Hz`（与灯带同 PWME 组同频），duty 1500(0.5ms)~7500(2.5ms)，中位 4500（300Hz 仅数字舵机适用）
 - 反馈：OpenART 球像素 X → `cm_x10 = (pixel - pixel_zero) * 10 / px_per_cm`
 - **丢球保护**：`proto_ball_valid==0` 保持上次输出
 - 标定参数：`servo_center_duty / pixel_zero / px_per_cm / ball_target_cm_x10`（config 持久化）
@@ -393,8 +403,16 @@ void main(void) {
     Menu_Init();  Menu_Push(&page_main);
 
     while (1) {
-        while (!launch_triggered) {   // [菜单] 按键导航 + Protocol_ReadBall
-            button_control(...);  if (key1..5_flag) Menu_*();
+        while (!launch_triggered) {   // [菜单] 4 键导航 + Protocol_ReadBall + 灯带 PWM
+            button_control(KEY_REPEAT_KEY1 | KEY_REPEAT_KEY2);
+            if (key1_flag) { key1_flag = 0; Menu_Inc(); }      // b2: 上/+
+            if (key2_flag) { key2_flag = 0; Menu_Dec(); }      // b3: 下/-
+            if (key3_flag) { key3_flag = 0; Menu_Edit(); }     // b4: 确定/编辑
+            if (key4_flag) { key4_flag = 0;
+                if (Menu_IsTop(&page_main)) { config_save(); Menu_Push(&page_launch); }
+                else Menu_Cancel(); }                          // P3.2: 返回
+            Protocol_ReadBall(&proto_ball_x);
+            pwm_set_duty(LED_PWM_PIN, (uint32)led_duty);
             system_delay_ms(10);
         }
         task_sched_run();             // [任务] 阻塞运行 + 结果页
@@ -414,7 +432,7 @@ void main(void) {
 | PWM | `pwm_init(ch, freq, duty)` / `pwm_set_duty(ch, duty)` | zf_driver |
 | 编码器 | `encoder_dir_init(enc, pulse_pin, dir_pin)` / `encoder_get_count(enc)` | zf_driver |
 | PIT 定时 | `pit_ms_init(PIT, ms, callback)` | zf_driver |
-| 舵机 | `pwm_init(PWME_CH1P_PA0, 50, 750)` / `pwm_set_duty(...)` | zf_driver |
+| 舵机 | `pwm_init(PWME_CH1P_PA0, 300, 4500)` / `pwm_set_duty(...)` | zf_driver |
 | UART | `uart_init(port, baud, tx, rx)` / `uart_write_string(port, s)` | zf_driver |
 | IMU660RA | `imu660ra_init()` / `imu660ra_get_gyro()` / `imu660ra_gyro_x/y/z` | zf_device |
 | 格式化 | `zf_sprintf(int8*, fmt, ...)` → uint32 长度 | zf_common |
@@ -531,9 +549,15 @@ WcTFT_PrintInt(cnt);
 OMV-RT5 作为**发送模块**稳固装在车上，仅负责实时图传 + 录像，不参与检测：
 
 - 运行 `main.py`：WiFi AP 模式，单页应用 MJPEG 推流
-- 热点：`OMVRT5` / `12345678`，地址 `http://192.168.4.1:8000/`
-- 分辨率 320×240，JPEG 质量 30
+- 热点：`OMVRT-WC` / `12345678`，地址 `http://192.168.4.1:8000/`
+- 分辨率 320×240，JPEG 质量 45
 - 不主动 GC，不显示 FPS，不与 STC32 通信
+- **MJPEG 推流健壮性（已修复，勿回退）**：
+  - **帧绝不半截丢弃**：每个客户端持 `{pending, off}` 缓冲，缓冲满（`EWOULDBLOCK`）保留未发完帧下次续发——若中途 return 丢弃，`--frame` 边界与 `Content-Length` 失配会让浏览器 multipart 永久失步 → 画面黑屏
+  - **多客户端列表广播**：`clients` 字典存所有 `/stream` 连接，不互杀（原版新连接 `close(stream)` 会杀掉活跃流，首帧未发即断）
+  - **排空 accept 队列 + `listen(8)`**：每循环处理所有待连连接，避免 backlog 溢出 RST `/stream`（浏览器开页面会同时连 `/`、`/favicon.ico`、`/stream`）
+  - **循环读请求行**：`recv` 直到 `\r\n`，防 TCP 分片；`settimeout(0.5)` 只用于请求读/前导发送，前导发送成功后才 `setblocking(False)` 挂流表
+  - 无观众时 `sleep_ms(20)` 降速不抓帧
 - 接收模块（手机/PC + 显示存储装置）置环形线路外，**实时显示钢球在凹槽中滚动画面** + **完整记录每次测试视频** + **按要求回放**
 
 ### OMV-RT5 引脚 (RT1062)
@@ -561,8 +585,9 @@ OpenART Plus 摄像头从车体上方**俯视**拍摄摆杆区域，**只负责�
 | **TFLite 模型** | `tf.detect()` 目标检测 | 准确率高，已有训练好的模型 | 速度较慢（~50-100ms） |
 | **灰度色块** | `find_blobs` 灰度阈值 | 速度快（~5ms），球在浅色水管上对比度高 | 可能受光照干扰 |
 
-- TFLite 模型: `_合并-2tflite.tflite` (YOLOv3 MobileNetV2, INT8, 112×112, 含 NMS)
-- 灰度方案：球在白色/绿色水管背景上为暗色圆形，ROI 限制在摆杆区域后 `find_blobs` 灰度阈值即可检出
+- TFLite 模型: `yolo3_iou_smartcar_final_with_post_processing.tflite`（SD 卡根目录，YOLOv3 MobileNetV2，INT8，**模型输入 [1,32,320,3] RGB**，含 NMS）
+- **ROI 必须与模型输入等比匹配**：`main.py` 用 `ROI_X,ROI_Y,ROI_W,ROI_H = 0, H//2-16, 320, 32`（320×32），**不转灰度**（新模型是 RGB），否则缩放失真导致 X 偏移
+- 灰度方案：球在白色/绿色水管背景上为暗色圆形，ROI 限制在摆杆区域后 `find_blobs` 灰度阈值即可检出（备选，未启用）
 
 ```python
 # 俯视，钢球在水管背景上呈暗色圆形
@@ -584,27 +609,28 @@ for b in blobs:
 OpenART 通过 UART12 发送钢球位置给 STC32（115200bps）：
 
 ```
-B,cx,cy,score\n           ← 钢球在摆杆上的位置 (像素坐标, 置信度)
-N\n                       ← 未检测到
+B,<cx>\n                 ← 检测到球，cx = 球像素 X 坐标（0-319，全帧）
+N\n                      ← 未检测到
 ```
 
-> 坐标原点建议以摆杆中心 O 为参考，STC32 接收到后做 PID 控制（PID 输入：球位置 → 输出：伸缩装置指令（开环） → 摆杆倾斜 → 球在重力下向目标位置滚动）。
+> **上电即持续发送**，无 START/STOP 门控（STC32 无需发开始指令）。STC32 `protocol.c` 只解析 `B,<cx>` / `N`，其余忽略。坐标相对 O 点的换算在 STC32 `ball_ctrl` 完成：`cm_x10 = (pixel - pixel_zero) * 10 / px_per_cm`。
 
 ### OpenART 引脚映射 (cmm_cfg.csv)
 
 | 功能 | 引脚 | 备注 |
 |------|------|------|
 | LED1~4 | DISP_B2_03/B1_07/B1_05/B2_08 | 板载 LED |
-| UART12 | TX=LPSR_04, RX=LPSR_05 | 与 STC32 通信 |
+| UART12 | TX=LPSR_06, RX=LPSR_07 | 与 STC32 通信（`main.py` 用 `UART(12, 115200)`） |
 | UART5 | TX=AD_28, RX=AD_29 | 备用串口 |
-| UART11 | TX=LPSR_04, RX=LPSR_05 | 共用 UART12 引脚 |
-| I2C5 | SDA=LPSR_04, SCL=LPSR_05 | 共用 UART12 引脚 |
-| I2C6 | SDA=LPSR_06, SCL=LPSR_07 | |
+| UART11 | TX=LPSR_04, RX=LPSR_05 | 未用 |
+| I2C5 | SDA=LPSR_04, SCL=LPSR_05 | 未用 |
+| I2C6 | SDA=LPSR_06, SCL=LPSR_07 | 共用 UART12 引脚 |
 | SPI6 | SCK=LPSR_10, SDO=LPSR_11, SDI=LPSR_12, CS=LPSR_09 | |
 | ADC A0~A3 | AD_26~AD_29 | |
 | PWM CH1~4 | AD_26~AD_29 (FlexPWM2) | |
 
-> **注意**：UART12、UART11、I2C5 共用 LPSR_04/LPSR_05 引脚，默认用于与 STC32 通信的 UART12，不可同时使用。
+> **接线（对应 STC32 `protocol.c`）**：OpenART UART12 TX (LPSR_06) → STC32 P5.0 (UART3 RX)；OpenART UART12 RX (LPSR_07) → STC32 P5.1 (UART3 TX)。
+> **注意**：UART12（LPSR_06/07）与 I2C6 共用引脚，默认用于通信的 UART12，不可同时使用。LPSR_04/05 归 UART11/I2C5，未参与通信。
 
 ## 比赛题目
 

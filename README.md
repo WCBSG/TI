@@ -22,11 +22,12 @@ OurProject/           ← STC32 主控工程（Keil C251）
       protocol.c/h        OpenART UART3 球坐标协议
     user/               ← 用户应用代码
       main.c              主程序入口（三态循环：菜单⇄任务⇄结果）
+      KEY.c/h             4 键按键（b2/b3/b4/P3.2，去抖 + 长按重复）
       IRPHOTO.c/h         八路红外循迹
       Motor.c/h           电机 PWM + 编码器（PIT 5ms 时基）
       PID.c/h             位置式 PID（差速用）
-      line_ctrl.c/h       差速开环巡线（弯道减速 + 陀螺仪阻尼）
-      ball_ctrl.c/h       舵机球稳闭环
+      line_ctrl.c/h       差速开环巡线（弯道减速 + KdYaw 陀螺仪阻尼）
+      ball_ctrl.c/h       舵机球稳闭环（300Hz）
       task_sched.c/h      任务 2/3/5/6 框架 + 串口调试帧
       imu_ctrl.c/h        IMU660RA 陀螺仪（X 轴 yaw，零点标定）
       config.c/h          参数持久化（IAP）
@@ -35,7 +36,9 @@ OurProject/           ← STC32 主控工程（Keil C251）
     mdk/                ← Keil 工程文件（seekfree.uvproj）
 
 OPenMV RT5/            ← 图传端 MicroPython（OpenMV IDE，芯片型号 OMV-RT5）
+  main.py                WiFi AP MJPEG 图传（热点 OMVRT-WC/12345678）
 OpenART Plus/          ← 识别端 MicroPython（OpenMV IDE）
+  main.py                TFLite 钢球检测 + UART12 输出（上电持续发送）
 docs/                  ← 项目文档
 ```
 
@@ -78,13 +81,14 @@ WcTFT_DrawGlyph16(x, y, bitmap, RGB565_YELLOW);  // 16×16 中文
 ```c
 Menu_Init();
 Menu_Push(&page_main);     // 显示页面
-Menu_Inc();                // Key1: 上移/参数+
-Menu_Dec();                // Key2: 下移/参数-
-Menu_Edit();               // Key3: 确定/进入编辑
-Menu_Cancel();             // Key4: 取消/返回
-Menu_Home(&page_main);     // Key5: 主菜单→Launch / 子页回主菜单
+Menu_Inc();                // b2: 上移/参数+
+Menu_Dec();                // b3: 下移/参数-
+Menu_Edit();               // b4: 确定/进入编辑
+Menu_Cancel();             // P3.2: 返回/取消编辑
+Menu_IsTop(&page_main);    // 判断是否在主菜单（主菜单按返回 → 进 Launch）
 ```
 
 - 栈式导航，支持嵌套子菜单
-- 带 `value` 指针的菜单项可进入编辑态（Key3 进入，Key1/Key2 调值，Key3 保存，Key4 取消）
+- 带 `value` 指针的菜单项可进入编辑态（b4 进入，b2/b3 调值，b4 保存，P3.2 取消）
 - 选中项反色高亮
+- **4 键映射**（新主板 Motherboard）：b2=上、b3=下、b4=确定、P3.2=返回；主菜单按返回 = 保存配置 + 进入 Launch（见 `main.c` 三态循环）

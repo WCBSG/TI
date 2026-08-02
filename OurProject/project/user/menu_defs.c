@@ -3,13 +3,13 @@
 * 说明              菜单页面定义实现
 *
 * 页面：
-*   主菜单      Steer PID / Base Speed / Protocol
+*   主菜单      Steer PID / Spd(直接调) / Ball / Led(直接调)
 *   Launch      任务列表（Task2/3/5/6，点选即启动）+ Ball Tgt（任务6 球目标）
 *   Steer PID   差速 PID 参数
-*   Base Speed  基准 duty
-*   Protocol    OpenART 协议调试（START/STOP/CAL + 球位置显示）
+*   Ball        OpenART 球坐标调试（X / Valid，只读）
 *
 * 可编辑参数均用 MENU_ITEM_VAL_RANGE 设置真实值域，与 config.c 边界一致。
+* Spd/Led 直接挂主菜单编辑（带 value 指针），无需进子页。
 ********************************************************************************************************************/
 
 #include "menu_defs.h"
@@ -34,28 +34,15 @@ static const MenuItem steer_items[] = {
 };
 static MenuPage page_steer = MENU_PAGE("Steer PID", steer_items, 6);
 
-/* ── Base Speed 页（基准 duty，0-10000 满占空比） ── */
-static const MenuItem speed_items[] = {
-    MENU_ITEM_VAL_RANGE(1, "Spd", &base_speed, 100, 0, 4000),
+/* ── Ball 调试页（OpenART 球坐标，只读） ── */
+static const MenuItem ball_items[] = {
+    MENU_ITEM_VAL(1, "Ball X",     &proto_ball_x, 1),
+    MENU_ITEM_BOOL(2, "Ball Valid", &proto_ball_valid),
 };
-static MenuPage page_speed = MENU_PAGE("Base Speed", speed_items, 1);
+static MenuPage page_ball = MENU_PAGE("Ball", ball_items, 2);
 
-/* ── Protocol 调试页 ── */
-static const MenuItem protocol_items[] = {
-    MENU_ITEM(1, "Send START", Protocol_SendStart),
-    MENU_ITEM(2, "Send STOP",  Protocol_SendStop),
-    MENU_ITEM(3, "Send CAL",   Protocol_SendCal),
-    MENU_ITEM_VAL(4, "Ball X",     &proto_ball_x, 1),
-    MENU_ITEM_BOOL(5, "Ball Valid", &proto_ball_valid),
-};
-static MenuPage page_protocol = MENU_PAGE("Protocol", protocol_items, 5);
-
-/* ── LED 灯带调试页（PA2 PWM 输出，亮度 0-10000） ── */
+/* ── LED 灯带亮度（PA2 PWM 输出，0-10000，直接主菜单编辑） ── */
 int16 led_duty = 0;   /* 灯带亮度 duty，main 菜单循环实时写入 PA2 PWM */
-static const MenuItem led_items[] = {
-    MENU_ITEM_VAL_RANGE(1, "Led", &led_duty, 100, 0, 10000),
-};
-static MenuPage page_led = MENU_PAGE("LED", led_items, 1);
 
 
 /* ═══════════════════════════════════════════════════════════
@@ -63,9 +50,7 @@ static MenuPage page_led = MENU_PAGE("LED", led_items, 1);
  * ════════════════════════════════════════════════════════════ */
 
 static void cb_steer(void)     { Menu_Push(&page_steer); }
-static void cb_speed(void)     { Menu_Push(&page_speed); }
-static void cb_protocol(void)  { Menu_Push(&page_protocol); }
-static void cb_led(void)       { Menu_Push(&page_led); }
+static void cb_ball(void)      { Menu_Push(&page_ball); }
 
 
 /* ═══════════════════════════════════════════════════════════
@@ -95,9 +80,9 @@ MenuPage page_launch = MENU_PAGE("LAUNCH", launch_items, 5);
  * ════════════════════════════════════════════════════════════ */
 
 static const MenuItem main_items[] = {
-    MENU_ITEM(1, "Steer PID",  cb_steer),
-    MENU_ITEM(2, "Base Speed", cb_speed),
-    MENU_ITEM(3, "Protocol",   cb_protocol),
-    MENU_ITEM(4, "LED",        cb_led),
+    MENU_ITEM(1, "Steer PID",     cb_steer),
+    MENU_ITEM_VAL_RANGE(2, "Spd", &base_speed, 100, 0, 4000),
+    MENU_ITEM(3, "Ball",          cb_ball),
+    MENU_ITEM_VAL_RANGE(4, "Led", &led_duty, 100, 0, 10000),
 };
 MenuPage page_main = MENU_PAGE("Main Menu", main_items, 4);
