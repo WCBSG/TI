@@ -14,6 +14,9 @@ int16 ball_target_cm_x10 = 0;
 /* 球目标像素 X（任务3/5/6 设置） */
 int16 g_servo_target = 175;   /* 默认 O 点（pixel_zero 初始值） */
 
+/* 控制使能：任务 3/5/6 + BallCal 页 = 1，其他禁用（中断里检查，防止回中后又被 PID 覆盖） */
+uint8 servo_enable = 0;
+
 /* 5ms 中断累加的毫秒计数器（Servo_Timer_Callback 每 5ms 加一次，任务3 稳定判定用） */
 volatile uint32 g_servo_ms = 0;
 
@@ -45,15 +48,24 @@ void Servo_PWM_Set(uint16 pwm_value)
 }
 
 /* ── PID 控制状态复位 + 舵机回中 ── */
-void Servo_Control_Init(void)
+/* 使能控制 + 开 UART3 接收（任务3/5/6 + BallCal 页调用；servo 需要球位置才接收） */
+void Servo_Enable(void)
 {
-    g_servo_target = pixel_zero;
+    servo_enable = 1;
+    Protocol_Start();
+}
+
+void Servo_Control_Init(void)   /* 回中 + PID 复位 + 禁用控制 + 关 UART3 接收（省算力） */
+{
+    servo_enable    = 0;
+    g_servo_target  = pixel_zero;
     last_error      = 0;
     error_sum       = 0.0f;
     filtered_diff   = 0.0f;
     last_target     = pixel_zero;
     last_duty       = (uint16)servo_center_duty;
     Servo_PWM_Set((uint16)servo_center_duty);
+    Protocol_Stop();
 }
 
 /* ── 小球追踪 PID + 前馈（移植自 E09 servo_control，真机验证）
@@ -127,7 +139,7 @@ void Servo_Timer_Callback(void)
 {
     g_servo_ms += SERVO_PIT_MS;     /* 5ms 计时 */
 
-    if (proto_ball_valid)
+    if (servo_enable && proto_ball_valid)
     {
         Servo_Control_Update(proto_ball_x);
     }

@@ -17,7 +17,6 @@
 #include "line_ctrl.h"     /* kp_t2 / kp_ot 等巡线参数 */
 #include "task_sched.h"    /* task_sched_set */
 #include "servo.h"         /* servo_center_duty / pixel_zero / px_per_cm / ball_target_cm_x10 */
-#include "protocol.h"      /* proto_ball_x（Ball Cal 页实时球位） */
 
 /* ═══════════════════════════════════════════════════════════
  * 页面定义
@@ -43,6 +42,8 @@ static const MenuItem steer56_items[] = {
 };
 static MenuPage page_steer56 = MENU_PAGE("Steer 5/6", steer56_items, 5);
 
+int16 ball_px_display = 0;   /* Ball Cal 页 BallPx 显示副本（main 每 100ms 从 proto_ball_x 刷新） */
+
 /* ── Ball Cal 页：球稳标定（servo 像素域 PID 宏定死，现场只调标定）
  *   BallPx 只读项：实时显示球像素 X（main 每 100ms 刷新），标定用：
  *     球放 O → 读 BallPx → 填 Pix0；球移 ±5cm → 读像素差 ÷5 → 填 P/cm */
@@ -50,9 +51,9 @@ static const MenuItem ballpid_items[] = {
     MENU_ITEM_VAL_RANGE(1, "Center", &servo_center_duty, 10, SERVO_MIN, SERVO_MAX),
     MENU_ITEM_VAL_RANGE(2, "Pix0",   &pixel_zero,         1,  0,        320),
     MENU_ITEM_VAL_RANGE(3, "P/cm",   &px_per_cm,          1,  1,        100),
-    MENU_ITEM_VAL_RANGE(4, "BallPx", &proto_ball_x,       0,  0,        319),
+    MENU_ITEM_VAL_RANGE(4, "BallPx", &ball_px_display,    0,  0,        319),
 };
-static MenuPage page_ballpid = MENU_PAGE("Ball Cal", ballpid_items, 4);
+MenuPage page_ballpid = MENU_PAGE("Ball Cal", ballpid_items, 4);
 
 /* ═══════════════════════════════════════════════════════════
  * 回调：子页导航

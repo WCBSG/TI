@@ -6,8 +6,8 @@
 
 #include "zf_common_headfile.h"
 
-extern int16  proto_ball_x;            /* 最新球像素 X（valid=1 时有效） */
-extern int16  proto_ball_valid;        /* 1=有有效球数据，0=未检测到 */
+extern volatile int16  proto_ball_x;   /* 最新球像素 X（valid=1 时有效，UART 中断写） */
+extern volatile int16  proto_ball_valid;   /* 1=有有效球数据，0=未检测到 */
 extern volatile uint16 proto_ball_frame_id;  /* 每收一帧递增（数据新鲜度） */
 
 void Protocol_Init(void);              /* 配 UART3 硬件（不使能接收） */

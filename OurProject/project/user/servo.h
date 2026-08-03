@@ -48,10 +48,14 @@ extern volatile uint32 g_servo_ms;
 /* 球目标像素 X（运行时修改：任务3/5/6 设置） */
 extern int16 g_servo_target;
 
+/* 控制使能：任务 3/5/6 + BallCal 页 = 1，其他禁用（Servo_Control_Init 复位为 0） */
+extern uint8 servo_enable;
+
 /* ── 函数声明 ── */
 void   Servo_Init(void);                       /* 舵机 PWM 初始化 */
 void   Servo_PWM_Set(uint16 pwm_value);        /* 直接设置占空比（带钳位） */
-void   Servo_Control_Init(void);               /* PID 状态复位 + 回中 */
+void   Servo_Enable(void);                     /* 使能控制 + Protocol_Start（任务3/5/6 + BallCal 用） */
+void   Servo_Control_Init(void);               /* 回中 + PID 复位 + 禁用 + Protocol_Stop */
 uint16 Servo_Control_Update(int16 cx);         /* 球像素 X → PID+前馈 → 舵机，返回 duty */
 void   Servo_Timer_Init(void);                 /* 初始化 5ms PIT，中断里执行 PID 追踪 */
 void   Servo_Timer_Callback(void);             /* 5ms 中断回调（pit 自动调用） */

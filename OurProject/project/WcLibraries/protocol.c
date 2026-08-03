@@ -8,8 +8,8 @@
 static char  rx_line[LINE_BUF_SIZE];
 static uint8 rx_idx;
 
-int16  proto_ball_x      = 0;
-int16  proto_ball_valid  = 0;
+volatile int16  proto_ball_x      = 0;
+volatile int16  proto_ball_valid  = 0;
 volatile uint16 proto_ball_frame_id = 0;
 
 static void parse_line(const char *line)
