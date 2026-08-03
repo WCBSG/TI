@@ -19,7 +19,7 @@
 #include "KEY.h"
 #include "protocol.h"
 #include "task_sched.h"
-#include "ball_ctrl.h"
+#include "servo.h"
 
 void main(void)
 {
@@ -35,10 +35,12 @@ void main(void)
     Protocol_Start();   /* 启动 UART3 接收：中断自动维护球位置（菜单/任务都能读） */
 
     line_ctrl_init();
-    ball_ctrl_init();
+    Servo_Init();
+    Servo_Control_Init();
+    Servo_Timer_Init();       /* 5ms 中断：像素域 PID+前馈 控舵机（TIM0） */
     /* base_speed 由 task_sched_run 按任务应用（base_speed_t2 / base_speed_ot） */
 
-    pit_ms_init(PIT_ENCODER, 5, pit_handler);   /* 5ms 硬件时基（计时） */
+    pit_ms_init(PIT_ENCODER, 5, pit_handler);   /* 5ms 硬件时基（计时，TM1） */
 
     /* ── 启动主菜单 ── */
     Menu_Init();

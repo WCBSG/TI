@@ -3,18 +3,20 @@
 * 说明              任务框架实现
 *
 * 通用巡线引擎 line_drive_run()：任务 2/5/6 共用
-*   - 红外巡线（line_ctrl）+ 可选球稳（ball_ctrl）并行
+*   - 红外巡线（line_ctrl）+ 可选球稳（servo 像素域 PID+前馈，5ms 中断自动驱动）
 *   - 任务 2 停车（学长方案）：起步忽略 1s → 停车线连续 3 帧 → 立即停
+*   - 球稳目标用像素（ball_set_cm：cm → 像素偏移），中断自行追踪，主循环不调 tick
 *
-* 任务 3 球往返：ball_ctrl 单独运行，目标序列 O→+5→-5，到位判定 ±1cm 持续 100ms
+* 任务 3：球 O→+5cm→-5cm（像素域状态机，移植自舵机项目）
+*   稳定判定 |球位-目标| < 12px 持续 200ms → 下一阶段
 *
-* 比赛清理（2026-08）：删 IMU 采样 / USB 调试帧 / task_fast_line 开关；
-* 运行时零刷屏（省算力），结束结果页显示耗时。
+* 比赛清理（2026-08）：运行时零刷屏（省算力），结束结果页显示耗时
 ********************************************************************************************************************/
 
 #include "task_sched.h"
 #include "line_ctrl.h"
-#include "ball_ctrl.h"
+#include "servo.h"
+#include "protocol.h"   /* proto_ball_x / proto_ball_valid（任务3 稳定判定） */
 #include "IRPHOTO.h"
 #include "Motor.h"
 #include "KEY.h"
@@ -25,6 +27,16 @@
 static TaskId current_task = TASK_IDLE;
 static int    last_result  = TASK_RESULT_RUNNING;
 static uint32 last_elapsed_ms = 0;   /* 最近一次任务耗时（结果页显示） */
+
+/* 任务3 稳定判定（像素域，移植自舵机项目） */
+#define T3_STABLE_ERR   12      /* 稳定判定：误差阈值（像素） */
+#define T3_STABLE_MS    200     /* 稳定判定：持续时长（ms，g_servo_ms 计时） */
+
+/* 球目标 cm(0.1cm) → 像素：offset = cm * px_per_cm / 10 */
+static void ball_set_cm(int16 cm_x10)
+{
+    g_servo_target = (int16)(pixel_zero + ((int32)cm_x10 * px_per_cm) / 10);
+}
 
 /* ═══════════════════════════════════════════════════════════
  * 停车线检测：A 点垂直启停线（横跨跑道）→ ≥3 路连续红外同时亮（00000111）
@@ -43,15 +55,14 @@ static uint8 line_is_stop(const int s[8])
 
 /* ═══════════════════════════════════════════════════════════
  * 通用巡线引擎：任务 2/5/6 共用
- *   enable_ball=1 时并行运行球稳环（目标 ball_target）
- *   每 100ms 屏幕显示计时（+球位），比赛无上位机全走屏幕
+ *   enable_ball=1 时球稳目标=ball_target（servo 5ms 中断自动追踪）
  * ════════════════════════════════════════════════════════════ */
 static int line_drive_run(uint8 enable_ball, int16 ball_target)
 {
     int s[8];
     uint8  stop_cd = 0;             /* 停车线连续确认计数 */
     uint8  stop_done = 0;           /* 停车完成标志 */
-    uint32 start_tick, last_ball_tick, elapsed_ms;
+    uint32 start_tick, elapsed_ms;
     int    result = TASK_RESULT_OK;
 
     /* 任务 2/5/6 超时保护（整圈 30s，任务 2 限 20s 但留余量） */
@@ -59,14 +70,14 @@ static int line_drive_run(uint8 enable_ball, int16 ball_target)
 
     motor1_control(0);
     motor2_control(0);
-    if (enable_ball) ball_ctrl_set_target(ball_target);
+    if (enable_ball) ball_set_cm(ball_target);   /* 球目标像素，servo 中断自动追踪 */
 
     /* 屏幕标题 */
     WcTFT_Clear(RGB565_BLACK);
     WcTFT_SetColor(RGB565_WHITE, RGB565_BLACK);
     WcTFT_PrintCenter(0, (enable_ball ? (ball_target ? "TASK 6" : "TASK 5") : "TASK 2"));
 
-    EA = 0; start_tick = pit_tick; last_ball_tick = pit_tick; EA = 1;
+    EA = 0; start_tick = pit_tick; EA = 1;
 
     while (1)
     {
@@ -92,19 +103,9 @@ static int line_drive_run(uint8 enable_ball, int16 ball_target)
             else stop_cd = 0;
         }
 
-        /* 巡线 + 可选球稳 */
+        /* 巡线（球稳由 5ms TIM0 中断驱动，主循环不调 tick） */
         err = calc_error(s);
         line_ctrl_set(err, base_speed);
-        if (enable_ball)
-        {
-            uint32 now_tick;
-            EA = 0; now_tick = pit_tick; EA = 1;
-            if ((now_tick - last_ball_tick) >= 2)
-            {
-                last_ball_tick = now_tick;
-                ball_ctrl_tick();
-            }
-        }
 
         /* 任务 2 停车完成：退出 */
         if (stop_done) break;
@@ -120,7 +121,7 @@ static int line_drive_run(uint8 enable_ball, int16 ball_target)
 
     motor1_control(0);
     motor2_control(0);
-    if (enable_ball) ball_ctrl_stop();
+    if (enable_ball) Servo_PWM_Set((uint16)servo_center_duty);   /* 舵机回中 */
 
     /* 记录本次耗时（结果页显示） */
     EA = 0; elapsed_ms = (pit_tick - start_tick) * 5; EA = 1;
@@ -130,17 +131,16 @@ static int line_drive_run(uint8 enable_ball, int16 ball_target)
 }
 
 /* ═══════════════════════════════════════════════════════════
- * 任务 3：球 O→+5cm→-5cm 往返（小车静止，纯 ball_ctrl）
+ * 任务 3：球 O→+5cm→-5cm 往返（小车静止，servo 5ms 中断追踪，主循环管状态机）
  * ════════════════════════════════════════════════════════════ */
-typedef enum { S3_HOLD, S3_TO_POS, S3_TO_NEG } Phase3;
-
 static int task3_run(void)
 {
     uint32 start_tick, elapsed_ms;
-    uint8  hold_cnt = 0, settle_cnt = 0;
-    Phase3 ph = S3_HOLD;
+    uint8  ph = 0;              /* 0=O, 1=+5cm, 2=-5cm, 3=完成 */
+    uint32 stable_since = 0;    /* 连续稳定起始毫秒（g_servo_ms） */
+    int16  tgt;
 
-    ball_ctrl_set_target(0);
+    ball_set_cm(0);             /* 目标 O（像素） */
 
     WcTFT_Clear(RGB565_BLACK);
     WcTFT_SetColor(RGB565_WHITE, RGB565_BLACK);
@@ -150,59 +150,39 @@ static int task3_run(void)
 
     while (1)
     {
-        ball_ctrl_tick();
+        /* 阶段目标（像素）：O → +5cm → -5cm */
+        if (ph == 0)      tgt = pixel_zero;
+        else if (ph == 1) tgt = (int16)(pixel_zero + 5 * px_per_cm);   /* +5.0cm */
+        else              tgt = (int16)(pixel_zero - 5 * px_per_cm);   /* -5.0cm */
+        g_servo_target = tgt;
 
-        switch (ph)
+        if (ph < 3)
         {
-            case S3_HOLD:                          /* 球稳 O，起步 0.5s */
-                if (++hold_cnt >= 50)
-                {
-                    ball_ctrl_set_target(50);      /* 目标 +5.0cm */
-                    settle_cnt = 0;
-                    ph = S3_TO_POS;
-                }
-                break;
+            int16 err = (int16)(proto_ball_x - tgt);
+            int16 ae  = (err < 0) ? (int16)(-err) : err;
 
-            case S3_TO_POS:                        /* 球 → +5cm，±1cm 稳定后切 -5cm */
-                if (!ball_feedback_fresh)
+            /* 稳定判定：|球位-目标| < 12px 持续 200ms → 下一阶段 */
+            if (proto_ball_valid && ae < T3_STABLE_ERR)
+            {
+                if (stable_since == 0) stable_since = g_servo_ms;
+                if (g_servo_ms - stable_since >= T3_STABLE_MS)
                 {
-                    settle_cnt = 0;
+                    ph++;
+                    stable_since = 0;
                 }
-                else if (ball_feedback_updated && ball_cm_x10 >= 40 && ball_cm_x10 <= 60)
-                {
-                    if (++settle_cnt >= 3)         /* 连续 3 个视觉帧，约 100~150ms */
-                    {
-                        ball_ctrl_set_target(-50);
-                        settle_cnt = 0;
-                        ph = S3_TO_NEG;
-                    }
-                }
-                else if (ball_feedback_updated)
-                {
-                    settle_cnt = 0;
-                }
-                break;
-
-            case S3_TO_NEG:                        /* 球 → -5cm，稳定即成功 */
-                if (!ball_feedback_fresh)
-                {
-                    settle_cnt = 0;
-                }
-                else if (ball_feedback_updated && ball_cm_x10 <= -40 && ball_cm_x10 >= -60)
-                {
-                    if (++settle_cnt >= 3)
-                    {
-                        ball_ctrl_stop();
-                        EA = 0; elapsed_ms = (pit_tick - start_tick) * 5; EA = 1;
-                        last_elapsed_ms = elapsed_ms;
-                        return TASK_RESULT_OK;
-                    }
-                }
-                else if (ball_feedback_updated)
-                {
-                    settle_cnt = 0;
-                }
-                break;
+            }
+            else
+            {
+                stable_since = 0;
+            }
+        }
+        else
+        {
+            /* 完成：舵机回中 */
+            Servo_PWM_Set((uint16)servo_center_duty);
+            EA = 0; elapsed_ms = (pit_tick - start_tick) * 5; EA = 1;
+            last_elapsed_ms = elapsed_ms;
+            return TASK_RESULT_OK;
         }
 
         system_delay_ms(10);
@@ -211,7 +191,7 @@ static int task3_run(void)
         EA = 0; elapsed_ms = (pit_tick - start_tick) * 5; EA = 1;
         if (elapsed_ms > 15000)
         {
-            ball_ctrl_stop();
+            Servo_PWM_Set((uint16)servo_center_duty);
             last_elapsed_ms = elapsed_ms;
             return TASK_RESULT_TIMEOUT;
         }
@@ -219,7 +199,7 @@ static int task3_run(void)
 }
 
 /* ═══════════════════════════════════════════════════════════
- * 结果页：显示任务号 + OK/FAILED/TIMEOUT，Key4 返回菜单
+ * 结果页：显示任务号 + OK/FAILED/TIMEOUT + 耗时，Key4 返回菜单
  * ════════════════════════════════════════════════════════════ */
 static void task_sched_show_result(int result)
 {

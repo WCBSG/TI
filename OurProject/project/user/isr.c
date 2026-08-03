@@ -4,7 +4,8 @@
 *
 * 实际使能的中断：
 *   1. DMA_UART3   OpenART 摄像头 UART3 接收（protocol.c，逐字节 DMA 中断）
-*   2. TM1         PIT 5ms 时基（main 里 pit_ms_init(PIT_ENCODER=TIM1_PIT) → pit_handler）
+*   2. TM0         servo 舵机 5ms PIT（pit_ms_init(TIM0_PIT) → Servo_Timer_Callback）
+*   3. TM1         PIT 5ms 时基（main 里 pit_ms_init(PIT_ENCODER=TIM1_PIT) → pit_handler）
 *
 * 说明：
 *   - USB 中断在库 usb.c（usb_isr, interrupt 25），不在此文件。
@@ -38,8 +39,21 @@ void DMA_UART3_IRQHandler(void) interrupt DMA_UR3R_VECTOR
 }
 
 /* ═══════════════════════════════════════════════════════════
+ * TIM0 定时器中断：servo 舵机 5ms PIT（pit_ms_init(TIM0_PIT, 5, Servo_Timer_Callback)）
+ *   中断里读球像素 → 像素域 PID+前馈 → 控舵机
+ * ════════════════════════════════════════════════════════════ */
+void TM0_IRQHandler() interrupt TMR0_VECTOR
+{
+    TIM0_CLEAR_FLAG;
+    if (tim_irq_handlers[TIM_0] != NULL)
+    {
+        tim_irq_handlers[TIM_0]();
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════
  * TIM1 定时器中断：PIT 5ms 时基（main 里 pit_ms_init(PIT_ENCODER, 5, pit_handler)）
- *   pit_handler 递增 pit_tick（计时）+ 编码器采样
+ *   pit_handler 递增 pit_tick（计时）
  * ════════════════════════════════════════════════════════════ */
 void TM1_IRQHandler() interrupt TMR1_VECTOR
 {

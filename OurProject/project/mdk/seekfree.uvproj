@@ -900,24 +900,14 @@
               <FilePath>..\user\Motor.h</FilePath>
             </File>
             <File>
-              <FileName>PID.c</FileName>
+              <FileName>servo.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\user\PID.c</FilePath>
+              <FilePath>..\user\servo.c</FilePath>
             </File>
             <File>
-              <FileName>PID.h</FileName>
+              <FileName>servo.h</FileName>
               <FileType>5</FileType>
-              <FilePath>..\user\PID.h</FilePath>
-            </File>
-            <File>
-              <FileName>ball_ctrl.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\user\ball_ctrl.c</FilePath>
-            </File>
-            <File>
-              <FileName>ball_ctrl.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\user\ball_ctrl.h</FilePath>
+              <FilePath>..\user\servo.h</FilePath>
             </File>
             <File>
               <FileName>line_ctrl.c</FileName>
