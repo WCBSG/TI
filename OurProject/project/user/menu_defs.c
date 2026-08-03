@@ -43,6 +43,17 @@ static const MenuItem steer56_items[] = {
 };
 static MenuPage page_steer56 = MENU_PAGE("Steer 5/6", steer56_items, 5);
 
+/* ── Ball PID 页：球稳回中参数（PID + 标定，现场调） ── */
+static const MenuItem ballpid_items[] = {
+    MENU_ITEM_VAL_RANGE(1, "Kp",  &ball_pid.Kp, 1, 0, 200),
+    MENU_ITEM_VAL_RANGE(2, "Ki",  &ball_pid.Ki, 1, 0, 200),
+    MENU_ITEM_VAL_RANGE(3, "Kd",  &ball_pid.Kd, 1, 0, 500),
+    MENU_ITEM_VAL_RANGE(4, "Center", &servo_center_duty, 10, 3500, 5500),
+    MENU_ITEM_VAL_RANGE(5, "Pix0", &pixel_zero, 1, 0, 320),
+    MENU_ITEM_VAL_RANGE(6, "P/cm", &px_per_cm, 1, 1, 100),
+};
+static MenuPage page_ballpid = MENU_PAGE("Ball PID", ballpid_items, 6);
+
 /* ── Ball 调试页（OpenART 球坐标，只读） ── */
 static const MenuItem ball_items[] = {
     MENU_ITEM_VAL(1, "Ball X",     &proto_ball_x, 1),
@@ -60,6 +71,7 @@ int16 led_duty = 0;   /* 灯带亮度 duty，main 菜单循环实时写入 PA2 P
 
 static void cb_steer2(void)    { Menu_Push(&page_steer2); }
 static void cb_steer56(void)   { Menu_Push(&page_steer56); }
+static void cb_ballpid(void)   { Menu_Push(&page_ballpid); }
 static void cb_ball(void)      { Menu_Push(&page_ball); }
 
 
@@ -94,7 +106,8 @@ MenuPage page_launch = MENU_PAGE("LAUNCH", launch_items, 5);
 static const MenuItem main_items[] = {
     MENU_ITEM(1, "Steer T2",      cb_steer2),
     MENU_ITEM(2, "Steer 5/6",     cb_steer56),
-    MENU_ITEM(3, "Ball",          cb_ball),
-    MENU_ITEM_VAL_RANGE(4, "Led", &led_duty, 100, 0, 10000),
+    MENU_ITEM(3, "Ball PID",      cb_ballpid),
+    MENU_ITEM(4, "Ball",          cb_ball),
+    MENU_ITEM_VAL_RANGE(5, "Led", &led_duty, 100, 0, 10000),
 };
-MenuPage page_main = MENU_PAGE("Main Menu", main_items, 4);
+MenuPage page_main = MENU_PAGE("Main Menu", main_items, 5);

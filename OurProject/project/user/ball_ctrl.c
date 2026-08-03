@@ -11,10 +11,10 @@
 #include "ball_ctrl.h"
 #include "config.h"
 
-/* ── 标定参数默认值（现场标定后经 config 持久化） ── */
-int16 servo_center_duty = SERVO_DUTY_CENTER;
-int16 pixel_zero        = 160;    /* 假设 O 点在图像中心，待标定 */
-int16 px_per_cm         = 20;     /* 假设 20px/cm，待标定 */
+/* ── 标定参数默认值（实测：2026-08） ── */
+int16 servo_center_duty = SERVO_DUTY_CENTER;   /* 4500 摆杆水平 */
+int16 pixel_zero        = 175;    /* 实测：O 点像素 X */
+int16 px_per_cm         = 11;     /* 实测：每 cm 像素数（±5cm 远端线性拟合，10.6~11.4） */
 int16 ball_target_cm_x10 = 0;
 
 PID_t ball_pid;
@@ -25,10 +25,12 @@ void ball_ctrl_init(void)
 {
     pwm_init(SERVO_PWM, SERVO_FREQ, SERVO_DUTY_CENTER);   /* 舵机置中位 */
 
-    ball_pid.Kp     = 30;
-    ball_pid.Ki     = 2;          /* 以 0.1 为单位，有效 0.2 */
-    ball_pid.Kd     = 0;
-    ball_pid.OutMax = 300;        /* 舵机 duty 偏移上限（750±300 在行程内） */
+    /* 球 PID：积分真累积后 Ki=2 太强 → 球 ±14cm 大幅振荡（积分猛推过冲）
+     * 调参：Ki 2→1（温和积分只消除稳态误差），积分限幅收紧（PID.c ±2000） */
+    ball_pid.Kp     = 8;
+    ball_pid.Ki     = 1;          /* 积分：真累积，只补偿稳态误差 */
+    ball_pid.Kd     = 15;         /* 阻尼：抑制过冲振荡 */
+    ball_pid.OutMax = 300;        /* 舵机 duty 偏移上限（4500±300 在行程内） */
     ball_pid.OutMin = -300;
     ball_pid.Target = 0;
 
@@ -54,7 +56,7 @@ void ball_ctrl_set_target(int16 cm_x10)
 void ball_ctrl_tick(void)
 {
     int32 duty;
-    int16 ball_cm_x10;
+    /* ⚠️ 不能用局部 ball_cm_x10：会 shadow 全局（任务 3 判定/显示用的全局值） */
 
     /* 丢球：保持上次输出 */
     if (!proto_ball_valid) return;

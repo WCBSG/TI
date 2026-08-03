@@ -27,6 +27,7 @@ static volatile uint8 cmd_ready;
 volatile uint8 ir_test_cmd  = 0;
 volatile uint8 proto_test_cmd = 0;   /* PROTO 协议测试标志（main 菜单循环消费） */
 volatile uint8 utest_cmd    = 0;   /* UTEST 回环测试标志（P5.1→P5.0 短接自测） */
+volatile uint8 hold_cmd     = 0;   /* HOLD 球稳中点测试标志 */
 
 /* ── 大小写不敏感比较（C251 C89 无 stricmp，手写；A-Z 转小写） ── */
 static uint8 cmd_eq(const char *a, const char *b)
@@ -144,6 +145,45 @@ static void cmd_servo(void)
     usb_cdc_write_buffer((const uint8 *)buf, (uint16)n);
 }
 
+/* ── 球稳参数调整：BP <PARAM> <VALUE>（现场调参免烧录；菜单 Ball PID 页同步可调）
+ *   BP KP 5    球 PID Kp
+ *   BP KI 1    球 PID Ki
+ *   BP KD 30   球 PID Kd
+ *   BP SC 4500 舵机中位 duty（摆杆水平）
+ *   BP PZ 175  O 点像素 X
+ *   BP PCM 11  每 cm 像素数
+ *   BP TGT 50  球目标位置（0.1cm，任务 6 用） */
+static void cmd_ball_param(void)
+{
+    int32 val = 0;
+    uint8 i = 2, j = 0;
+    char param[8];
+    char buf[64];
+    uint32 n = 0;
+
+    while (cmd_buf[i] == ' ') i++;
+    while (cmd_buf[i] >= 'A' && cmd_buf[i] <= 'Z' && j < 7) param[j++] = cmd_buf[i++];
+    param[j] = '\0';
+    while (cmd_buf[i] == ' ') i++;
+    while (cmd_buf[i] >= '0' && cmd_buf[i] <= '9')
+    {
+        val = val * 10 + (cmd_buf[i] - '0');
+        i++;
+    }
+
+    if      (cmd_eq(param, "KP"))  { ball_pid.Kp = (int16)val; }
+    else if (cmd_eq(param, "KI"))  { ball_pid.Ki = (int16)val; }
+    else if (cmd_eq(param, "KD"))  { ball_pid.Kd = (int16)val; }
+    else if (cmd_eq(param, "SC"))  { servo_center_duty = (int16)val; }
+    else if (cmd_eq(param, "PZ"))  { pixel_zero = (int16)val; }
+    else if (cmd_eq(param, "PCM")) { px_per_cm = (int16)val; }
+    else if (cmd_eq(param, "TGT")) { ball_target_cm_x10 = (int16)val; }
+    else { usb_cdc_write_string("[BP] KP/KI/KD/SC/PZ/PCM/TGT <val>\n"); return; }
+
+    n += zf_sprintf((int8 *)(buf + n), "[BP] %s=%d\n", param, (int32)val);
+    usb_cdc_write_buffer((const uint8 *)buf, (uint16)n);
+}
+
 /* ── 主循环调用：解析收到的命令并执行 ── */
 void cmd_poll(void)
 {
@@ -157,15 +197,17 @@ void cmd_poll(void)
     else if (cmd_eq(cmd_buf, "IR")) { ir_test_cmd = 1; }
     else if (cmd_eq(cmd_buf, "PROTO")) { proto_test_cmd = 1; }
     else if (cmd_eq(cmd_buf, "UTEST")) { utest_cmd = 1; }
-    else if (cmd_eq(cmd_buf, "STOP")) { ir_test_cmd = 0; proto_test_cmd = 0; utest_cmd = 0; }   /* 停止测试 */
+    else if (cmd_eq(cmd_buf, "STOP")) { ir_test_cmd = 0; proto_test_cmd = 0; utest_cmd = 0; hold_cmd = 0; }   /* 停止测试 */
+    else if (cmd_eq(cmd_buf, "HOLD")) { hold_cmd = 1; }
     else if (cmd_eq(cmd_buf, "SPIN")) { cmd_spin('L'); }
     else if (cmd_eq(cmd_buf, "SPIN L")) { cmd_spin('L'); }
     else if (cmd_eq(cmd_buf, "SPIN R")) { cmd_spin('R'); }
     else if (cmd_eq(cmd_buf, "FAST")) { task_fast_line = 1; usb_cdc_write_string("[FAST] 高速纯巡线\n"); }
     else if (cmd_eq(cmd_buf, "DBG"))  { task_fast_line = 0; usb_cdc_write_string("[DBG] 完整调试\n"); }
     else if (cmd_prefix_eq(cmd_buf, "SV")) { cmd_servo(); }
+    else if (cmd_prefix_eq(cmd_buf, "BP")) { cmd_ball_param(); }
     else if (cmd_eq(cmd_buf, "HELP"))
     {
-        usb_cdc_write_string("T2/T3/T5/T6/IR/PROTO/UTEST/SPIN[L/R]/SV[<duty>]/FAST/DBG/STOP/HELP\n");
+        usb_cdc_write_string("T2/T3/T5/T6/IR/PROTO/UTEST/SPIN[L/R]/SV[<duty>]/BP[KP/KI/KD/SC/PZ/PCM/TGT <v>]/HOLD/FAST/DBG/STOP/HELP\n");
     }
 }

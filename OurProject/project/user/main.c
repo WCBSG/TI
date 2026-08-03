@@ -229,6 +229,59 @@ static void utest_run(void)
 }
 
 
+/* ═══════════════════════════════════════════════════════════
+ * 球稳中点测试（HOLD 命令触发）：球 PID 目标=0，持续维持球在 O 点
+ *   串口每 100ms 一行：B=球cm PX=像素 V=有效 SD=舵机duty
+ *   先确认 servo_center_duty：球应静止在 O（B≈0），若滚说明摆杆不水平
+ * 退出：收到 STOP 命令 / 按任意键
+ * ════════════════════════════════════════════════════════════ */
+static void hold_run(void)
+{
+    uint8  dbg_cd = 0;
+    char   buf[96];
+    uint32 n;
+
+    ball_ctrl_set_target(0);
+
+    WcTFT_Clear(RGB565_BLACK);
+    WcTFT_SetColor(RGB565_WHITE, RGB565_BLACK);
+    WcTFT_PrintCenter(0, "BALL HOLD");
+    WcTFT_PrintCenter(3, "STOP: exit");
+
+    usb_cdc_write_string("[HOLD] ball target=0 (O), STOP to exit\n");
+
+    while (1)
+    {
+        ball_ctrl_tick();   /* 球 PID 维持中点（10ms 节拍） */
+
+        if (++dbg_cd >= 10)
+        {
+            dbg_cd = 0;
+            n = 0;
+            n += zf_sprintf((int8 *)(buf + n), "B=%d PX=%d V=%d SD=%d\n",
+                            (int32)ball_cm_x10, (int32)proto_ball_x,
+                            (int32)proto_ball_valid, (int32)ball_duty_out);
+            usb_cdc_write_buffer((const uint8 *)buf, (uint16)n);
+        }
+
+        cmd_poll();
+        if (!hold_cmd) break;
+        button_control(0);
+        if (key1_flag || key2_flag || key3_flag || key4_flag)
+        {
+            key1_flag = key2_flag = key3_flag = key4_flag = 0;
+            hold_cmd = 0;
+            break;
+        }
+
+        system_delay_ms(10);
+    }
+
+    ball_ctrl_stop();
+    usb_cdc_write_string("[HOLD] stopped\n");
+}
+
+
 /* ═══════════════════════════════════════════════════════════ */
 void main(void)
 {
@@ -297,6 +350,15 @@ void main(void)
             {
                 utest_run();
                 utest_cmd = 0;             /* 退出后再清，防重复进入 */
+                WcTFT_Clear(RGB565_BLACK);
+                WcTFT_SetColor(RGB565_WHITE, RGB565_BLACK);
+                Menu_Draw();
+            }
+
+            if (hold_cmd)                  /* HOLD 命令 → 球稳中点测试 */
+            {
+                hold_run();
+                hold_cmd = 0;
                 WcTFT_Clear(RGB565_BLACK);
                 WcTFT_SetColor(RGB565_WHITE, RGB565_BLACK);
                 Menu_Draw();

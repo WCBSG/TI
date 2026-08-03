@@ -25,6 +25,7 @@
 extern volatile uint8 ir_test_cmd;
 extern volatile uint8 proto_test_cmd;   /* PROTO 协议测试 */
 extern volatile uint8 utest_cmd;        /* UTEST 回环测试 */
+extern volatile uint8 hold_cmd;         /* HOLD 球稳中点测试 */
 
 void cmd_ctrl_init(void);   /* 注册 USB-CDC 接收回调（main 初始化后调用） */
 void cmd_poll(void);        /* 主循环调用：解析收到的命令并执行 */
