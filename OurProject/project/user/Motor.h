@@ -13,22 +13,11 @@
 #define DIR_2               ( PWMB_CH1_P74 )//右后轮转向
 
 
-#define ENCODER_DIR_LR                  (PWMA_ENCODER)              // 左轮编码器
-#define ENCODER_DIR_PULSE_LR            (PWMA_ENCODER_CH1P_P60)     // PULSE 引脚
-#define ENCODER_DIR_DIR_LR              (PWMA_ENCODER_CH2P_P62)     // DIR 引脚
-
-#define ENCODER_DIR_RR                  (PWMC_ENCODER)              // 右轮编码器
-#define ENCODER_DIR_PULSE_RR            (PWMC_ENCODER_CH1P_P40)     // PULSE 引脚
-#define ENCODER_DIR_DIR_RR              (PWMC_ENCODER_CH2P_P42)     // DIR 引脚
-
 extern volatile uint32 pit_tick;     /* 5ms 硬件时基计数（PIT 中断递增） */
 
 void Motor_Init(void);
-void encoder_init(void);
 void motor1_control(int16 motor_duty);
 void motor2_control(int16 motor_duty);
-int16 motor_get_encoder_lr(void);    /* 诊断：左轮 5ms 编码器计数 */
-int16 motor_get_encoder_rr(void);    /* 诊断：右轮 5ms 编码器计数 */
 void pit_handler(void);
 
 #endif

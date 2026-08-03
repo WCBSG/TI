@@ -13,8 +13,7 @@
 ********************************************************************************************************************/
 
 #include "menu_defs.h"
-#include "line_ctrl.h"     /* steer_pid, kd_yaw */
-#include "protocol.h"
+#include "line_ctrl.h"     /* kp_t2 / kp_ot 等巡线参数 */
 #include "task_sched.h"    /* task_sched_set */
 #include "ball_ctrl.h"     /* ball_target_cm_x10 */
 
@@ -54,17 +53,6 @@ static const MenuItem ballpid_items[] = {
 };
 static MenuPage page_ballpid = MENU_PAGE("Ball PID", ballpid_items, 6);
 
-/* ── Ball 调试页（OpenART 球坐标，只读） ── */
-static const MenuItem ball_items[] = {
-    MENU_ITEM_VAL(1, "Ball X",     &proto_ball_x, 1),
-    MENU_ITEM_BOOL(2, "Ball Valid", &proto_ball_valid),
-};
-static MenuPage page_ball = MENU_PAGE("Ball", ball_items, 2);
-
-/* ── LED 灯带亮度（PA2 PWM 输出，0-10000，直接主菜单编辑） ── */
-int16 led_duty = 0;   /* 灯带亮度 duty，main 菜单循环实时写入 PA2 PWM */
-
-
 /* ═══════════════════════════════════════════════════════════
  * 回调：子页导航
  * ════════════════════════════════════════════════════════════ */
@@ -72,7 +60,6 @@ int16 led_duty = 0;   /* 灯带亮度 duty，main 菜单循环实时写入 PA2 P
 static void cb_steer2(void)    { Menu_Push(&page_steer2); }
 static void cb_steer56(void)   { Menu_Push(&page_steer56); }
 static void cb_ballpid(void)   { Menu_Push(&page_ballpid); }
-static void cb_ball(void)      { Menu_Push(&page_ball); }
 
 
 /* ═══════════════════════════════════════════════════════════
@@ -107,7 +94,5 @@ static const MenuItem main_items[] = {
     MENU_ITEM(1, "Steer T2",      cb_steer2),
     MENU_ITEM(2, "Steer 5/6",     cb_steer56),
     MENU_ITEM(3, "Ball PID",      cb_ballpid),
-    MENU_ITEM(4, "Ball",          cb_ball),
-    MENU_ITEM_VAL_RANGE(5, "Led", &led_duty, 100, 0, 10000),
 };
-MenuPage page_main = MENU_PAGE("Main Menu", main_items, 5);
+MenuPage page_main = MENU_PAGE("Main Menu", main_items, 3);

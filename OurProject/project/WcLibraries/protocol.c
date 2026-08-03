@@ -9,6 +9,8 @@
 * 数据流：
 *   OpenART 每帧发送 "B,<cx>\n" 或 "N\n"
 *   STC32 DMA 逐字节接收 → line buffer → 解析 → 更新 proto_ball_x / proto_ball_valid
+*
+* 比赛清理（2026-08）：删原始字节环形缓冲（rx_mon）/ DebugGet / SendLoopback（测试用）
 ********************************************************************************************************************/
 
 #include "protocol.h"
@@ -24,12 +26,6 @@ static uint8 rx_idx;
 int16 proto_ball_x      = 0;
 int16 proto_ball_valid  = 0;
 volatile uint16 proto_ball_frame_id = 0;
-
-/* ── 调试：原始字节环形缓冲（测试 P5.0 是否收到 OpenART 消息） ── */
-#define RX_MON_SIZE   64
-static volatile uint8 rx_mon[RX_MON_SIZE];
-static volatile uint8 rx_mon_head = 0;   /* ISR 写指针 */
-static volatile uint8 rx_mon_tail = 0;   /* 主循环读指针 */
 
 /* ── 内部：解析一行 ── */
 static void parse_line(const char *line)
@@ -63,22 +59,9 @@ static void parse_line(const char *line)
     /* 其他：忽略（可能是噪声或未来扩展） */
 }
 
-/* ── ISR：追加一个原始字节到环形缓冲（满则丢最新字节） ── */
-static void rx_mon_put(uint8 d)
-{
-    uint8 nxt = (uint8)((rx_mon_head + 1) % RX_MON_SIZE);
-    if (nxt != rx_mon_tail)
-    {
-        rx_mon[rx_mon_head] = d;
-        rx_mon_head = nxt;
-    }
-}
-
 /* ── DMA 接收回调（ISR 中调用，每次一个字节） ── */
 static void rx_callback(uint8 dat)
 {
-    rx_mon_put(dat);   /* 调试：原始字节全部入环形缓冲 */
-
     if (dat == '\n')
     {
         /* 行结束：解析 */
@@ -139,24 +122,6 @@ void Protocol_Stop(void)
 {
     /* 失能 DMA 接收中断：停止回调触发（不再维护球位置变量） */
     uart_rx_interrupt(UART_3, DISABLE, rx_callback);
-}
-
-/* 回环测试：从 UART3 TX (P5.1) 发一帧测试数据（配合 UTEST 命令 + P5.1→P5.0 短接） */
-void Protocol_SendLoopback(void)
-{
-    uart_write_string(UART_3, "LOOP\n");
-}
-
-/* 调试：读出积压的原始接收字节（消费），返回读出数 */
-uint8 Protocol_DebugGet(uint8 *out, uint8 max)
-{
-    uint8 n = 0;
-    while (n < max && rx_mon_tail != rx_mon_head)
-    {
-        out[n++] = rx_mon[rx_mon_tail];
-        rx_mon_tail = (uint8)((rx_mon_tail + 1) % RX_MON_SIZE);
-    }
-    return n;
 }
 
 /** 快照当前球位置；有效状态由接收中断持续维护，不在读取时消费。 */

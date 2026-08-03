@@ -1,6 +1,6 @@
 /*********************************************************************************************************************
 * 文件名称          cmd_ctrl.c
-* 说明              USB-CDC 命令触发实现 — 上位机发命令启动测试
+* 说明              USB-CDC 命令触发实现 — 上位机发命令现场调参
 *
 * 接收链路：
 *   usb_cdc_rx_interrupt(cmd_rx_irq) 注册回调
@@ -8,26 +8,20 @@
 *   → 只存字节凑行（cmd_ready=1），不在 ISR 做事
 *   → 主循环 cmd_poll() 解析执行
 *
-* 命令（大小写不敏感）：T2/T3/T5/T6 启动任务，IR 光电测试，STOP 停 IR，HELP 帮助
+* 命令（大小写不敏感）：SV 舵机测试 / BP 球稳参数调整 / HELP 帮助
+* 比赛清理（2026-08）：删 T2/T3/T5/T6 任务启动（只靠菜单按键）+ IR/PROTO/UTEST/
+* HOLD/SPIN/FAST/DBG/STOP 调试测试命令；保留现场调参命令 SV/BP。
 ********************************************************************************************************************/
 
 #include "cmd_ctrl.h"
-#include "task_sched.h"    /* task_sched_set, TASK_* */
-#include "menu_defs.h"     /* launch_triggered, base_speed */
-#include "Motor.h"         /* SPIN 转向测试：motor1/motor2_control */
 #include "ball_ctrl.h"     /* SV 舵机测试：SERVO_PWM / SERVO_DUTY_MIN/MAX/CENTER */
 
 /* ── 命令缓冲（ISR 写入，主循环读取） ── */
-#define CMD_BUF_MAX   16    /* 够 "STOP"/"T2"，超长截断 */
+#define CMD_BUF_MAX   16    /* 够 "BP PCM 11"，超长截断 */
 
 static char  cmd_buf[CMD_BUF_MAX];
 static uint8 cmd_idx;
 static volatile uint8 cmd_ready;
-
-volatile uint8 ir_test_cmd  = 0;
-volatile uint8 proto_test_cmd = 0;   /* PROTO 协议测试标志（main 菜单循环消费） */
-volatile uint8 utest_cmd    = 0;   /* UTEST 回环测试标志（P5.1→P5.0 短接自测） */
-volatile uint8 hold_cmd     = 0;   /* HOLD 球稳中点测试标志 */
 
 /* ── 大小写不敏感比较（C251 C89 无 stricmp，手写；A-Z 转小写） ── */
 static uint8 cmd_eq(const char *a, const char *b)
@@ -84,39 +78,7 @@ void cmd_ctrl_init(void)
 {
     cmd_idx = 0;
     cmd_ready = 0;
-    ir_test_cmd = 0;
     usb_cdc_rx_interrupt(cmd_rx_irq);
-}
-
-/* ── 原地转向测试：SPIN[ L|R]，2 秒固定差速（验证电机左右是否标反）
- *   SPIN  或 SPIN L → 左轮正 duty / 右轮停（预期左转）
- *   SPIN R         → 左轮停 / 右轮正 duty（预期右转）
- *   若实测方向与预期相反 → 电机左右标反，需交换 motor1/motor2 输出 */
-static void cmd_spin(uint8 dir)
-{
-    uint32 t0;
-    EA = 0; t0 = pit_tick; EA = 1;
-
-    if (dir == 'R')       /* 右轮转，左轮停 */
-    {
-        motor1_control(0);
-        motor2_control(-2000);
-        usb_cdc_write_string("[SPIN R] 右轮转左轮停 2s\n");
-    }
-    else                  /* 左轮转，右轮停 */
-    {
-        motor1_control(2000);
-        motor2_control(0);
-        usb_cdc_write_string("[SPIN L] 左轮转右轮停 2s\n");
-    }
-
-    while (1)
-    {
-        EA = 0; if ((pit_tick - t0) * 5 > 2000) { EA = 1; break; } EA = 1;
-        system_delay_ms(10);
-    }
-    motor1_control(0);
-    motor2_control(0);
 }
 
 /* ── 舵机测试：SV [<duty>] — 摆到指定位置（找中位/测行程）
@@ -214,24 +176,10 @@ void cmd_poll(void)
     if (!cmd_ready) return;
     cmd_ready = 0;
 
-    if (cmd_eq(cmd_buf, "T2"))      { task_sched_set(TASK_2);  launch_triggered = 1; }
-    else if (cmd_eq(cmd_buf, "T3")) { task_sched_set(TASK_3);  launch_triggered = 1; }
-    else if (cmd_eq(cmd_buf, "T5")) { task_sched_set(TASK_5);  launch_triggered = 1; }
-    else if (cmd_eq(cmd_buf, "T6")) { task_sched_set(TASK_6);  launch_triggered = 1; }
-    else if (cmd_eq(cmd_buf, "IR")) { ir_test_cmd = 1; }
-    else if (cmd_eq(cmd_buf, "PROTO")) { proto_test_cmd = 1; }
-    else if (cmd_eq(cmd_buf, "UTEST")) { utest_cmd = 1; }
-    else if (cmd_eq(cmd_buf, "STOP")) { ir_test_cmd = 0; proto_test_cmd = 0; utest_cmd = 0; hold_cmd = 0; }   /* 停止测试 */
-    else if (cmd_eq(cmd_buf, "HOLD")) { hold_cmd = 1; }
-    else if (cmd_eq(cmd_buf, "SPIN")) { cmd_spin('L'); }
-    else if (cmd_eq(cmd_buf, "SPIN L")) { cmd_spin('L'); }
-    else if (cmd_eq(cmd_buf, "SPIN R")) { cmd_spin('R'); }
-    else if (cmd_eq(cmd_buf, "FAST")) { task_fast_line = 1; usb_cdc_write_string("[FAST] 高速纯巡线\n"); }
-    else if (cmd_eq(cmd_buf, "DBG"))  { task_fast_line = 0; usb_cdc_write_string("[DBG] 完整调试\n"); }
-    else if (cmd_prefix_eq(cmd_buf, "SV")) { cmd_servo(); }
+    if (cmd_prefix_eq(cmd_buf, "SV")) { cmd_servo(); }
     else if (cmd_prefix_eq(cmd_buf, "BP")) { cmd_ball_param(); }
     else if (cmd_eq(cmd_buf, "HELP"))
     {
-        usb_cdc_write_string("T2/T3/T5/T6/IR/PROTO/UTEST/SPIN[L/R]/SV[<duty>]/BP[KP/KI/KD/SC/PZ/PCM/TGT <v>]/HOLD/FAST/DBG/STOP/HELP\n");
+        usb_cdc_write_string("SV[<duty>]/BP[KP/KI/KD/SC/PZ/PCM/TGT <v>]/HELP\n");
     }
 }

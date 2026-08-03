@@ -930,16 +930,6 @@
               <FilePath>..\user\line_ctrl.h</FilePath>
             </File>
             <File>
-              <FileName>imu_ctrl.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\user\imu_ctrl.c</FilePath>
-            </File>
-            <File>
-              <FileName>imu_ctrl.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\user\imu_ctrl.h</FilePath>
-            </File>
-            <File>
               <FileName>cmd_ctrl.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\user\cmd_ctrl.c</FilePath>

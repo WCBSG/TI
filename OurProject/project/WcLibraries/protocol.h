@@ -29,8 +29,4 @@ void Protocol_Start(void);       /* 启动接收：使能 DMA 中断 + 开始接
 void Protocol_Stop(void);        /* 停止接收：失能 DMA 中断 */
 uint8 Protocol_ReadBall(int16 *x); /* 快照当前球 X（不清状态），返回 1=当前检测有效 */
 
-/* ── 调试（UTEST/PROTO 测试用） ── */
-uint8 Protocol_DebugGet(uint8 *out, uint8 max); /* 读出积压的原始接收字节（消费） */
-void Protocol_SendLoopback(void);    /* 回环测试：UART3 TX 发 "LOOP\n"（UTEST 用） */
-
 #endif
