@@ -105,6 +105,31 @@ void Menu_Cancel(void)  /* Key4: 返回 / 取消编辑（还原） */
 static void fill_row(uint8 y, uint16 fg, uint16 bg)
 { WcTFT_SetColor(fg, bg); WcTFT_PrintAt(0, y, "                                "); }
 
+/* 只重画当前页各 value 项的值列（不清背景/前缀/名，轻量）
+ * 用于 BallCal 页 100ms 局部刷新实时球位，避免整页重绘 */
+void Menu_RedrawValues(void)
+{
+    MenuPage *p = stack_top();
+    uint8 i;
+    if (!p) return;
+    for (i = 0; i < p->count; i++)
+    {
+        const MenuItem *it = &p->items[i];
+        uint8 sel, ed, y;
+        uint16 fg, bg;
+        if (!it->value) continue;
+        if (i < p->scroll || i >= p->scroll + MAX_VISIBLE) continue;
+        sel = (i == p->cursor);
+        ed  = p->editing && sel;
+        y   = (uint8)((i - p->scroll + 1) * ROW_H);
+        if (ed)       { fg = CLR_EDIT_FG; bg = CLR_EDIT_BG; }
+        else if (sel) { fg = CLR_SEL_FG;  bg = CLR_SEL_BG;  }
+        else          { fg = CLR_NORM_FG; bg = CLR_NORM_BG; }
+        tft180_set_color(fg, bg);
+        tft180_show_int16(56, y, *it->value);
+    }
+}
+
 void Menu_Draw(void)
 {
     MenuPage *p = stack_top();

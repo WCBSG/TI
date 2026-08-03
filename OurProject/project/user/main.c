@@ -60,8 +60,12 @@ void main(void)
                 if (Menu_IsTop(&page_ballpid)) Servo_Enable();
                 else if (servo_enable) Servo_Control_Init();
 
-                /* 100ms：刷新 BallPx 显示副本 + 重绘菜单 */
-                if (++refresh_cd >= 10) { refresh_cd = 0; ball_px_display = proto_ball_x; Menu_Draw(); }
+                /* 仅 BallCal 页每 100ms 局部刷新值列（BallPx 实时球位），其他页不刷新 */
+                if (++refresh_cd >= 10)
+                {
+                    refresh_cd = 0;
+                    if (Menu_IsTop(&page_ballpid)) { ball_px_display = proto_ball_x; Menu_RedrawValues(); }
+                }
                 system_delay_ms(10);
             }
         }

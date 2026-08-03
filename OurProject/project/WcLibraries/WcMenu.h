@@ -35,6 +35,7 @@ void   Menu_Inc(void);       /* Key1 */
 void   Menu_Dec(void);       /* Key2 */
 void   Menu_Edit(void);      /* Key3 */
 void   Menu_Cancel(void);    /* Key4 */
-void   Menu_Draw(void);
+void   Menu_Draw(void);      /* 全量重绘当前页 */
+void   Menu_RedrawValues(void);  /* 只重画 value 项值列（BallCal 页 100ms 刷新实时值用） */
 
 #endif

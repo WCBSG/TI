@@ -48,9 +48,12 @@ void Servo_PWM_Set(uint16 pwm_value)
 }
 
 /* ── PID 控制状态复位 + 舵机回中 ── */
-/* 使能控制 + 开 UART3 接收（任务3/5/6 + BallCal 页调用；servo 需要球位置才接收） */
+/* 使能控制 + 开 UART3 接收（任务3/5/6 + BallCal 页调用；servo 需要球位置才接收）
+ * ⚠️ 幂等：main 菜单循环每 10ms 调用本函数，已使能必须跳过 Protocol_Start，
+ *    否则每 10ms 重启 DMA 接收（DMA_URXR_CR=0xA1 清 FIFO）→ 打断接收读不到球 */
 void Servo_Enable(void)
 {
+    if (servo_enable) return;
     servo_enable = 1;
     Protocol_Start();
 }

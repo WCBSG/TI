@@ -48,10 +48,15 @@ void Protocol_Start(void)
 {
     /* ⚠️ 必须 uart_rx_interrupt()：置 DMA_UR3R_CFG bit7 使能接收中断（曾漏设收 0 字节） */
     uart_rx_interrupt(UART_3, ENABLE, rx_callback);
+    DMA_UR3R_STA &= ~0x03;   /* 清 Stop 期间残留的完成(bit0)/溢出(bit1)标志，防 DMA 重启错乱 */
     uart_rx_start_buff(UART_3);
 }
 
-void Protocol_Stop(void) { uart_rx_interrupt(UART_3, DISABLE, rx_callback); }
+void Protocol_Stop(void)
+{
+    uart_rx_interrupt(UART_3, DISABLE, rx_callback);
+    DMA_UR3R_STA &= ~0x03;   /* 清残留标志，下次 Start 干净启动 */
+}
 
 uint8 Protocol_ReadBall(int16 *x)
 {
