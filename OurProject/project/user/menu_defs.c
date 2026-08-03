@@ -23,11 +23,14 @@
  * 页面定义
  * ════════════════════════════════════════════════════════════ */
 
-/* ── Steer PID 页（差速 PID，输出 duty 差；KdYaw=陀螺仪阻尼系数） ── */
+/* ── Steer PID 页（纯比例巡线：Kp + 平滑 + 弯道速度控制） ── */
 static const MenuItem steer_items[] = {
     MENU_ITEM_VAL_RANGE(1, "Kp",  &steer_kp, 10, 0, 500),
+    MENU_ITEM_VAL_RANGE(2, "Smooth", &steer_smooth, 1, 0, 100),
+    MENU_ITEM_VAL_RANGE(3, "Lim", &steer_lim, 10, 100, 200),
+    MENU_ITEM_VAL_RANGE(4, "Decel", &curve_decel, 5, 0, 50),
 };
-static MenuPage page_steer = MENU_PAGE("Steer PID", steer_items, 1);
+static MenuPage page_steer = MENU_PAGE("Steer PID", steer_items, 4);
 
 /* ── Ball 调试页（OpenART 球坐标，只读） ── */
 static const MenuItem ball_items[] = {
