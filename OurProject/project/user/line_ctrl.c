@@ -16,11 +16,11 @@
 int16 line_duty_lr = 0;   /* 诊断：最近一次左轮输出 duty */
 int16 line_duty_rr = 0;   /* 诊断：最近一次右轮输出 duty */
 int16 line_turn = 0;      /* 诊断：最近一次转向量 turn */
-int16 steer_kp = 245;     /* 纯比例增益（官方 Kp=280） ,目前测出来245比较稳*/
+int16 steer_kp = 260;     /* 纯比例增益（官方 Kp=280） */
 
 void line_ctrl_init(void)
 {
-    steer_kp = 245;   /* 硬编码官方值，不读 flash */
+    steer_kp = 260;   /* 硬编码官方值，不读 flash */
 }
 
 void line_ctrl_set(int error, int base_speed)

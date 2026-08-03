@@ -242,6 +242,7 @@ void main(void)
     encoder_init();
 
     Protocol_Init();
+    Protocol_Start();   /* 启动 UART3 接收：中断自动维护球位置（菜单/任务都能读） */
 
     /* 配置加载必须先于任何消费 flash_buff 的初始化，否则持久化参数不生效 */
     config_load();

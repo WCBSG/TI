@@ -120,8 +120,10 @@ void cmd_poll(void)
     else if (cmd_eq(cmd_buf, "SPIN")) { cmd_spin('L'); }
     else if (cmd_eq(cmd_buf, "SPIN L")) { cmd_spin('L'); }
     else if (cmd_eq(cmd_buf, "SPIN R")) { cmd_spin('R'); }
+    else if (cmd_eq(cmd_buf, "FAST")) { task_fast_line = 1; usb_cdc_write_string("[FAST] 高速纯巡线\n"); }
+    else if (cmd_eq(cmd_buf, "DBG"))  { task_fast_line = 0; usb_cdc_write_string("[DBG] 完整调试\n"); }
     else if (cmd_eq(cmd_buf, "HELP"))
     {
-        usb_cdc_write_string("T2/T3/T5/T6/IR/PROTO/UTEST/SPIN[L/R]/STOP/HELP\n");
+        usb_cdc_write_string("T2/T3/T5/T6/IR/PROTO/UTEST/SPIN[L/R]/FAST/DBG/STOP/HELP\n");
     }
 }

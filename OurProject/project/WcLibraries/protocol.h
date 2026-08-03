@@ -31,7 +31,9 @@ extern int16 proto_ball_x;       /* 最新球 X 坐标（像素），仅 proto_b
 extern int16 proto_ball_valid;   /* 1=有有效球数据，0=未检测到（int16 以匹配菜单 BOOL 项） */
 
 /* ── 初始化和控制 ── */
-void Protocol_Init(void);        /* 初始化 UART3 + DMA 接收 */
+void Protocol_Init(void);        /* 初始化 UART3 硬件（不使能接收） */
+void Protocol_Start(void);       /* 启动接收：使能 DMA 中断 + 开始接收，中断自动维护球位置 */
+void Protocol_Stop(void);        /* 停止接收：失能 DMA 中断 */
 uint8 Protocol_DebugGet(uint8 *out, uint8 max); /* 调试：读出积压的原始接收字节（消费） */
 void Protocol_SendLoopback(void);    /* 回环测试：UART3 TX 发 "LOOP\n"（UTEST 用） */
 void Protocol_SendStart(void);   /* 发送 START 命令给 OpenART */

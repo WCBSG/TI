@@ -33,6 +33,8 @@ typedef enum {
     TASK_RESULT_TIMEOUT    /* 超时 */
 } TaskResult;
 
+extern uint8 task_fast_line;   /* 高速巡线开关：1=纯巡线（FAST），0=完整调试（DBG） */
+
 void task_sched_set(int task_id);
 int  task_sched_get(void);
 void task_sched_run(void);      /* 阻塞运行所选任务直至完成，显示结果页 */

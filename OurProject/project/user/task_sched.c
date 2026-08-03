@@ -33,7 +33,11 @@ static int    last_result  = TASK_RESULT_RUNNING;
 /* ═══════════════════════════════════════════════════════════
  * 通用巡线引擎：任务 2/5/6 共用
  *   enable_ball=1 时并行运行球稳环（目标 ball_target）
+ *   task_fast_line=1（FAST 命令）：纯巡线，无显示/串口/IMU，控制频率最高
+ *   task_fast_line=0（DBG 命令）：完整调试（IMU + TFT + USB 帧）
  * ════════════════════════════════════════════════════════════ */
+uint8 task_fast_line = 1;   /* 高速巡线开关：1=纯巡线（默认），0=完整调试（FAST/DBG 命令切换） */
+
 static int line_drive_run(uint8 enable_ball, int16 ball_target)
 {
     int s[8];
@@ -49,9 +53,12 @@ static int line_drive_run(uint8 enable_ball, int16 ball_target)
     motor2_control(0);
     if (enable_ball) ball_ctrl_set_target(ball_target);
 
-    WcTFT_Clear(RGB565_BLACK);
-    WcTFT_SetColor(RGB565_WHITE, RGB565_BLACK);
-    WcTFT_PrintCenter(0, (enable_ball ? (ball_target ? "TASK 6" : "TASK 5") : "TASK 2"));
+    if (!task_fast_line)   /* 调试模式显示任务标题 */
+    {
+        WcTFT_Clear(RGB565_BLACK);
+        WcTFT_SetColor(RGB565_WHITE, RGB565_BLACK);
+        WcTFT_PrintCenter(0, (enable_ball ? (ball_target ? "TASK 6" : "TASK 5") : "TASK 2"));
+    }
 
     EA = 0; start_tick = pit_tick; last_imu_tick = pit_tick; EA = 1;
 
@@ -59,9 +66,11 @@ static int line_drive_run(uint8 enable_ball, int16 ball_target)
     {
         int   err;
 
-        /* IMU 采样 + yaw 积分（pit_tick 实测 dt，避免 system_delay 累积误差） */
-        EA = 0; imu_dt = (uint16)((pit_tick - last_imu_tick) * 5); last_imu_tick = pit_tick; EA = 1;
-        imu_ctrl_tick(imu_dt);
+        if (!task_fast_line)   /* 调试模式：IMU 采样 + yaw 积分 */
+        {
+            EA = 0; imu_dt = (uint16)((pit_tick - last_imu_tick) * 5); last_imu_tick = pit_tick; EA = 1;
+            imu_ctrl_tick(imu_dt);
+        }
 
         IRPHOTO_Read(s);
 
@@ -70,73 +79,75 @@ static int line_drive_run(uint8 enable_ball, int16 ball_target)
         line_ctrl_set(err, base_speed);
         if (enable_ball) ball_ctrl_tick();
 
-        /* line-v2 调参：无 delay 高速巡线（实测直线更稳） */
-        if (++display_cd >= 10)              /* 每 100ms 刷新显示 */
+        if (!task_fast_line)   /* 调试模式：每 100ms 显示 + USB 串口帧 */
         {
-            display_cd = 0;
-            EA = 0; elapsed_ms = (pit_tick - start_tick) * 5; EA = 1;
-            sec   = (uint16)(elapsed_ms / 1000);
-            tenth = (uint16)((elapsed_ms % 1000) / 100);
-
-            WcTFT_SetColor(RGB565_WHITE, RGB565_BLACK);
-            /* 每行一个参数（核心项，其余看 USB-CDC 串口） */
-            WcTFT_PrintAt(0, 16, "T:");
-            WcTFT_PrintIntAt(24, 16, (int32)sec);
-            WcTFT_PrintAt(48, 16, ".");
-            WcTFT_PrintIntAt(56, 16, (int32)tenth);
-            WcTFT_PrintAt(96, 16, "s");
-            WcTFT_PrintAt(0, 32, "E:");
-            WcTFT_PrintIntAt(24, 32, (int32)err);
-            WcTFT_PrintAt(0, 48, "D1:");
-            WcTFT_PrintIntAt(24, 48, (int32)line_duty_lr);
-            WcTFT_PrintAt(0, 64, "D2:");
-            WcTFT_PrintIntAt(24, 64, (int32)line_duty_rr);
-            WcTFT_PrintAt(0, 80, "E1:");
-            WcTFT_PrintIntAt(24, 80, (int32)motor_get_encoder_lr());
-            WcTFT_PrintAt(0, 96, "E2:");
-            WcTFT_PrintIntAt(24, 96, (int32)motor_get_encoder_rr());
-            if (enable_ball)
+            if (++display_cd >= 10)
             {
-                WcTFT_PrintAt(0, 112, "B:");
-                WcTFT_PrintFloatAt(24, 112, (double)ball_cm_x10 / 10.0, 1);
-                WcTFT_PrintAt(0, 128, "T:");
-                WcTFT_PrintFloatAt(24, 128, (double)ball_pid.Target / 10.0, 1);
-            }
-            /* 陀螺仪数据不占屏幕，走 USB-CDC 串口（GZ=/YAW=） */
+                display_cd = 0;
+                EA = 0; elapsed_ms = (pit_tick - start_tick) * 5; EA = 1;
+                sec   = (uint16)(elapsed_ms / 1000);
+                tenth = (uint16)((elapsed_ms % 1000) / 100);
 
-            /* USB-CDC 串口调试帧（一行一帧，空格分隔，便于上位机解析） */
-            {
-                char dbg[192];
-                uint32 n = 0;
-                char ir_bits[9];
-                uint8 i;
-                /* %d 参数必须 (int32) 转换：zf_sprintf 按 int32 读变参，int16 负数会读成 65535 */
-                for (i = 0; i < 8; i++) ir_bits[i] = s[i] ? '1' : '0';
-                ir_bits[8] = '\0';
-                n += zf_sprintf((int8 *)(dbg + n), "T=%d.%d ", (int32)sec, (int32)tenth);
-                n += zf_sprintf((int8 *)(dbg + n), "E=%d ", (int32)err);
-                n += zf_sprintf((int8 *)(dbg + n), "IR=%s ", ir_bits);
-                n += zf_sprintf((int8 *)(dbg + n), "D1=%d ", (int32)line_duty_lr);
-                n += zf_sprintf((int8 *)(dbg + n), "D2=%d ", (int32)line_duty_rr);
-                n += zf_sprintf((int8 *)(dbg + n), "SO=%d ", (int32)line_turn);
-                n += zf_sprintf((int8 *)(dbg + n), "E1=%d ", (int32)motor_get_encoder_lr());
-                n += zf_sprintf((int8 *)(dbg + n), "E2=%d ", (int32)motor_get_encoder_rr());
-                n += zf_sprintf((int8 *)(dbg + n), "BASE=%d ", (int32)base_speed);
-                n += zf_sprintf((int8 *)(dbg + n), "YAW=%d ", (int32)(imu_yaw_x100 / 100));   /* 航向度 */
-                n += zf_sprintf((int8 *)(dbg + n), "GZ=%d ", (int32)imu_gyro_dps_x10);       /* 0.1°/s */
+                WcTFT_SetColor(RGB565_WHITE, RGB565_BLACK);
+                /* 每行一个参数（核心项，其余看 USB-CDC 串口） */
+                WcTFT_PrintAt(0, 16, "T:");
+                WcTFT_PrintIntAt(24, 16, (int32)sec);
+                WcTFT_PrintAt(48, 16, ".");
+                WcTFT_PrintIntAt(56, 16, (int32)tenth);
+                WcTFT_PrintAt(96, 16, "s");
+                WcTFT_PrintAt(0, 32, "E:");
+                WcTFT_PrintIntAt(24, 32, (int32)err);
+                WcTFT_PrintAt(0, 48, "D1:");
+                WcTFT_PrintIntAt(24, 48, (int32)line_duty_lr);
+                WcTFT_PrintAt(0, 64, "D2:");
+                WcTFT_PrintIntAt(24, 64, (int32)line_duty_rr);
+                WcTFT_PrintAt(0, 80, "E1:");
+                WcTFT_PrintIntAt(24, 80, (int32)motor_get_encoder_lr());
+                WcTFT_PrintAt(0, 96, "E2:");
+                WcTFT_PrintIntAt(24, 96, (int32)motor_get_encoder_rr());
                 if (enable_ball)
                 {
-                    n += zf_sprintf((int8 *)(dbg + n), "B=%d ", (int32)ball_cm_x10);
-                    n += zf_sprintf((int8 *)(dbg + n), "TGT=%d ", (int32)ball_pid.Target);
-                    n += zf_sprintf((int8 *)(dbg + n), "PX=%d ", (int32)proto_ball_x);
-                    n += zf_sprintf((int8 *)(dbg + n), "V=%d ", (int32)proto_ball_valid);
-                    n += zf_sprintf((int8 *)(dbg + n), "SD=%d\n", (int32)ball_duty_out);
+                    WcTFT_PrintAt(0, 112, "B:");
+                    WcTFT_PrintFloatAt(24, 112, (double)ball_cm_x10 / 10.0, 1);
+                    WcTFT_PrintAt(0, 128, "T:");
+                    WcTFT_PrintFloatAt(24, 128, (double)ball_pid.Target / 10.0, 1);
                 }
-                else
+                /* 陀螺仪数据不占屏幕，走 USB-CDC 串口（GZ=/YAW=） */
+
+                /* USB-CDC 串口调试帧（一行一帧，空格分隔，便于上位机解析） */
                 {
-                    n += zf_sprintf((int8 *)(dbg + n), "\n");
+                    char dbg[192];
+                    uint32 n = 0;
+                    char ir_bits[9];
+                    uint8 i;
+                    /* %d 参数必须 (int32) 转换：zf_sprintf 按 int32 读变参，int16 负数会读成 65535 */
+                    for (i = 0; i < 8; i++) ir_bits[i] = s[i] ? '1' : '0';
+                    ir_bits[8] = '\0';
+                    n += zf_sprintf((int8 *)(dbg + n), "T=%d.%d ", (int32)sec, (int32)tenth);
+                    n += zf_sprintf((int8 *)(dbg + n), "E=%d ", (int32)err);
+                    n += zf_sprintf((int8 *)(dbg + n), "IR=%s ", ir_bits);
+                    n += zf_sprintf((int8 *)(dbg + n), "D1=%d ", (int32)line_duty_lr);
+                    n += zf_sprintf((int8 *)(dbg + n), "D2=%d ", (int32)line_duty_rr);
+                    n += zf_sprintf((int8 *)(dbg + n), "SO=%d ", (int32)line_turn);
+                    n += zf_sprintf((int8 *)(dbg + n), "E1=%d ", (int32)motor_get_encoder_lr());
+                    n += zf_sprintf((int8 *)(dbg + n), "E2=%d ", (int32)motor_get_encoder_rr());
+                    n += zf_sprintf((int8 *)(dbg + n), "BASE=%d ", (int32)base_speed);
+                    n += zf_sprintf((int8 *)(dbg + n), "YAW=%d ", (int32)(imu_yaw_x100 / 100));   /* 航向度 */
+                    n += zf_sprintf((int8 *)(dbg + n), "GZ=%d ", (int32)imu_gyro_dps_x10);       /* 0.1°/s */
+                    if (enable_ball)
+                    {
+                        n += zf_sprintf((int8 *)(dbg + n), "B=%d ", (int32)ball_cm_x10);
+                        n += zf_sprintf((int8 *)(dbg + n), "TGT=%d ", (int32)ball_pid.Target);
+                        n += zf_sprintf((int8 *)(dbg + n), "PX=%d ", (int32)proto_ball_x);
+                        n += zf_sprintf((int8 *)(dbg + n), "V=%d ", (int32)proto_ball_valid);
+                        n += zf_sprintf((int8 *)(dbg + n), "SD=%d\n", (int32)ball_duty_out);
+                    }
+                    else
+                    {
+                        n += zf_sprintf((int8 *)(dbg + n), "\n");
+                    }
+                    usb_cdc_write_buffer((const uint8 *)dbg, (uint16)n);
                 }
-                usb_cdc_write_buffer((const uint8 *)dbg, (uint16)n);
             }
         }
 

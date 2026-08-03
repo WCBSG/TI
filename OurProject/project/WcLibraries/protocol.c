@@ -114,17 +114,27 @@ void Protocol_Init(void)
     proto_ball_x     = 0;
     proto_ball_valid = 0;
 
-    /* 初始化 UART3: P5.0=RX, P5.1=TX, 115200bps */
+    /* 初始化 UART3: P5.0=RX, P5.1=TX, 115200bps（不使能接收，由 Protocol_Start 控制） */
     uart_init(UART_3, 115200, UART3_TX_P51, UART3_RX_P50);
+}
 
+void Protocol_Start(void)
+{
     /* 注册 DMA 接收回调 + 使能 DMA 接收中断
      * ⚠️ 必须用 uart_rx_interrupt()：它置 DMA_UR3R_CFG bit7（接收中断使能）。
      *    曾直接赋值 uart_rx_handlers[UART_3]=rx_callback 漏了中断使能，
-     *    → 数据进 DMA buffer 但回调永不触发（PROTO/UTEST 收 0 字节）。 */
+     *    → 数据进 DMA buffer 但回调永不触发（PROTO/UTEST 收 0 字节）。
+     * 启动后中断自动维护 proto_ball_x / proto_ball_valid（rx_callback 解析）。 */
     uart_rx_interrupt(UART_3, ENABLE, rx_callback);
 
     /* 启动 DMA 接收 */
     uart_rx_start_buff(UART_3);
+}
+
+void Protocol_Stop(void)
+{
+    /* 失能 DMA 接收中断：停止回调触发（不再维护球位置变量） */
+    uart_rx_interrupt(UART_3, DISABLE, rx_callback);
 }
 
 /* 回环测试：从 UART3 TX (P5.1) 发一帧测试数据（配合 UTEST 命令 + P5.1→P5.0 短接） */
