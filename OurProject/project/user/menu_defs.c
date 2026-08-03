@@ -23,14 +23,25 @@
  * 页面定义
  * ════════════════════════════════════════════════════════════ */
 
-/* ── Steer PID 页（纯比例巡线：Kp + 平滑 + 弯道速度控制） ── */
-static const MenuItem steer_items[] = {
-    MENU_ITEM_VAL_RANGE(1, "Kp",  &steer_kp, 10, 0, 500),
-    MENU_ITEM_VAL_RANGE(2, "Smooth", &steer_smooth, 1, 0, 100),
-    MENU_ITEM_VAL_RANGE(3, "Lim", &steer_lim, 10, 100, 200),
-    MENU_ITEM_VAL_RANGE(4, "Decel", &curve_decel, 5, 0, 50),
+/* ── Steer T2 页：任务 2 巡线参数（更快，40% 占空比） ── */
+static const MenuItem steer2_items[] = {
+    MENU_ITEM_VAL_RANGE(1, "Kp",  &kp_t2, 10, 0, 500),
+    MENU_ITEM_VAL_RANGE(2, "Smooth", &smooth_t2, 1, 0, 100),
+    MENU_ITEM_VAL_RANGE(3, "Lim", &lim_t2, 10, 100, 200),
+    MENU_ITEM_VAL_RANGE(4, "Decel", &dec_t2, 5, 0, 50),
+    MENU_ITEM_VAL_RANGE(5, "Spd", &base_speed_t2, 100, 0, 6000),
 };
-static MenuPage page_steer = MENU_PAGE("Steer PID", steer_items, 4);
+static MenuPage page_steer2 = MENU_PAGE("Steer T2", steer2_items, 5);
+
+/* ── Steer 5/6 页：其他任务巡线参数（球稳更稳，21% 占空比） ── */
+static const MenuItem steer56_items[] = {
+    MENU_ITEM_VAL_RANGE(1, "Kp",  &kp_ot, 10, 0, 500),
+    MENU_ITEM_VAL_RANGE(2, "Smooth", &smooth_ot, 1, 0, 100),
+    MENU_ITEM_VAL_RANGE(3, "Lim", &lim_ot, 10, 100, 200),
+    MENU_ITEM_VAL_RANGE(4, "Decel", &dec_ot, 5, 0, 50),
+    MENU_ITEM_VAL_RANGE(5, "Spd", &base_speed_ot, 100, 0, 6000),
+};
+static MenuPage page_steer56 = MENU_PAGE("Steer 5/6", steer56_items, 5);
 
 /* ── Ball 调试页（OpenART 球坐标，只读） ── */
 static const MenuItem ball_items[] = {
@@ -47,7 +58,8 @@ int16 led_duty = 0;   /* 灯带亮度 duty，main 菜单循环实时写入 PA2 P
  * 回调：子页导航
  * ════════════════════════════════════════════════════════════ */
 
-static void cb_steer(void)     { Menu_Push(&page_steer); }
+static void cb_steer2(void)    { Menu_Push(&page_steer2); }
+static void cb_steer56(void)   { Menu_Push(&page_steer56); }
 static void cb_ball(void)      { Menu_Push(&page_ball); }
 
 
@@ -56,7 +68,9 @@ static void cb_ball(void)      { Menu_Push(&page_ball); }
  * ════════════════════════════════════════════════════════════ */
 
 uint8 launch_triggered = 0;
-int16 base_speed        = 3000;   /* 基准 duty（0-10000 满量程），减速电机 30% */
+int16 base_speed        = 3000;   /* 当前激活基准 duty（任务启动时应用对应任务值） */
+int16 base_speed_t2     = 4000;   /* 任务 2：40% 占空比 */
+int16 base_speed_ot     = 2100;   /* 其他任务：21% 占空比 */
 
 static void cb_task2(void) { task_sched_set(TASK_2); launch_triggered = 1; }
 static void cb_task3(void) { task_sched_set(TASK_3); launch_triggered = 1; }
@@ -78,8 +92,8 @@ MenuPage page_launch = MENU_PAGE("LAUNCH", launch_items, 5);
  * ════════════════════════════════════════════════════════════ */
 
 static const MenuItem main_items[] = {
-    MENU_ITEM(1, "Steer PID",     cb_steer),
-    MENU_ITEM_VAL_RANGE(2, "Spd", &base_speed, 100, 0, 6000),
+    MENU_ITEM(1, "Steer T2",      cb_steer2),
+    MENU_ITEM(2, "Steer 5/6",     cb_steer56),
     MENU_ITEM(3, "Ball",          cb_ball),
     MENU_ITEM_VAL_RANGE(4, "Led", &led_duty, 100, 0, 10000),
 };

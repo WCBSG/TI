@@ -1,6 +1,6 @@
 /*********************************************************************************************************************
 * 文件名称          WcMenu.c
-* 说明              栈式菜单实现 — 5 键导航、参数编辑（带值域钳位）
+* 说明              栈式菜单实现 — 4 键导航、参数编辑（带值域钳位）
 *
 * 绘制约定（128×160 PORTRAIT）：
 *   正常选中: "> Name: val"  白底黑字
@@ -73,7 +73,7 @@ void Menu_SwitchTo(MenuPage *page)
 
 void Menu_Clear(void) { top = -1; WcTFT_Clear(RGB565_BLACK); }
 
-/* ── 5 键导航 ── */
+/* ── 4 键导航 ── */
 
 /** Key1: 上 / 参数+（带钳位） */
 void Menu_Inc(void)
@@ -169,37 +169,6 @@ void Menu_Cancel(void)
     {
         Menu_Pop();
     }
-}
-
-/** Key5: 子页→回主菜单 / 主菜单→由调用方处理 Launch */
-void Menu_Home(MenuPage *main_page)
-{
-    int8 i;
-
-    if (!main_page || top < 0) return;
-    if (stack[top]->editing) return;          /* 编辑态禁用 */
-
-    /* 已在主菜单 → 无操作，由 main.c 检测后 Push Launch */
-    if (stack[top] == main_page) return;
-
-    /*
-     * 从栈顶向下查找主菜单：
-     *   找到 → 截断栈到主菜单之下（移除主菜单及上方所有页）
-     *   未找到 → 保持栈不变，直接在顶部 Push 主菜单
-     *
-     * 例: [A, B, main, X, Y] → 找到 main@idx=2 → top=1 → Push(main) → [A, B, main]
-     * 例: [A, B, C] (无 main) → top=2 不变 → Push(main) → [A, B, C, main]
-     */
-    for (i = top; i >= 0; i--)
-    {
-        if (stack[i] == main_page)
-        {
-            top = (int8)(i - 1);  /* 断点：移除 main 及之后所有页 */
-            break;
-        }
-    }
-
-    Menu_Push(main_page);
 }
 
 /* ── 其他查询 ── */

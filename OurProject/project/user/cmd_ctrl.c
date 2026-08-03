@@ -15,6 +15,7 @@
 #include "task_sched.h"    /* task_sched_set, TASK_* */
 #include "menu_defs.h"     /* launch_triggered, base_speed */
 #include "Motor.h"         /* SPIN 转向测试：motor1/motor2_control */
+#include "ball_ctrl.h"     /* SV 舵机测试：SERVO_PWM / SERVO_DUTY_MIN/MAX/CENTER */
 
 /* ── 命令缓冲（ISR 写入，主循环读取） ── */
 #define CMD_BUF_MAX   16    /* 够 "STOP"/"T2"，超长截断 */
@@ -39,6 +40,20 @@ static uint8 cmd_eq(const char *a, const char *b)
         if (ca != cb) return 0;
     }
     return (a[i] == '\0' && b[i] == '\0');
+}
+
+/* ── 前缀匹配：a 以 b 开头（大小写不敏感），如 "SV 4500" 匹配 "SV" ── */
+static uint8 cmd_prefix_eq(const char *a, const char *b)
+{
+    uint8 i;
+    for (i = 0; b[i]; i++)
+    {
+        char ca = a[i], cb = b[i];
+        if (ca >= 'A' && ca <= 'Z') ca += 'a' - 'A';
+        if (cb >= 'A' && cb <= 'Z') cb += 'a' - 'A';
+        if (ca != cb) return 0;
+    }
+    return 1;
 }
 
 /* ── USB 接收回调（ISR 上下文！只存字节，不做事） ── */
@@ -103,6 +118,32 @@ static void cmd_spin(uint8 dir)
     motor2_control(0);
 }
 
+/* ── 舵机测试：SV [<duty>] — 摆到指定位置（找中位/测行程）
+ *   SV         → 中位 4500
+ *   SV 1500    → 一端 / SV 7500 → 另一端
+ *   摆杆水平时的 duty 即 servo_center_duty（标定参数） */
+static void cmd_servo(void)
+{
+    int32 val = 0;
+    uint8 i = 2;
+    char buf[48];
+    uint32 n = 0;
+
+    while (cmd_buf[i] == ' ') i++;
+    while (cmd_buf[i] >= '0' && cmd_buf[i] <= '9')
+    {
+        val = val * 10 + (cmd_buf[i] - '0');
+        i++;
+    }
+    if (val == 0 && cmd_buf[i] == '\0') val = SERVO_DUTY_CENTER;  /* 裸 SV → 中位 */
+    if (val < SERVO_DUTY_MIN) val = SERVO_DUTY_MIN;
+    if (val > SERVO_DUTY_MAX) val = SERVO_DUTY_MAX;
+
+    pwm_set_duty(SERVO_PWM, (uint32)val);
+    n += zf_sprintf((int8 *)(buf + n), "[SV] duty=%d\n", (int32)val);
+    usb_cdc_write_buffer((const uint8 *)buf, (uint16)n);
+}
+
 /* ── 主循环调用：解析收到的命令并执行 ── */
 void cmd_poll(void)
 {
@@ -122,8 +163,9 @@ void cmd_poll(void)
     else if (cmd_eq(cmd_buf, "SPIN R")) { cmd_spin('R'); }
     else if (cmd_eq(cmd_buf, "FAST")) { task_fast_line = 1; usb_cdc_write_string("[FAST] 高速纯巡线\n"); }
     else if (cmd_eq(cmd_buf, "DBG"))  { task_fast_line = 0; usb_cdc_write_string("[DBG] 完整调试\n"); }
+    else if (cmd_prefix_eq(cmd_buf, "SV")) { cmd_servo(); }
     else if (cmd_eq(cmd_buf, "HELP"))
     {
-        usb_cdc_write_string("T2/T3/T5/T6/IR/PROTO/UTEST/SPIN[L/R]/FAST/DBG/STOP/HELP\n");
+        usb_cdc_write_string("T2/T3/T5/T6/IR/PROTO/UTEST/SPIN[L/R]/SV[<duty>]/FAST/DBG/STOP/HELP\n");
     }
 }

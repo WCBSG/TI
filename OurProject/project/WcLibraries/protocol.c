@@ -155,21 +155,6 @@ uint8 Protocol_DebugGet(uint8 *out, uint8 max)
     return n;
 }
 
-void Protocol_SendStart(void)
-{
-    uart_write_string(UART_3, "START\n");
-}
-
-void Protocol_SendStop(void)
-{
-    uart_write_string(UART_3, "STOP\n");
-}
-
-void Protocol_SendCal(void)
-{
-    uart_write_string(UART_3, "CAL\n");
-}
-
 /** 读取最新球位置并清空标志位（防止读到重复数据） */
 uint8 Protocol_ReadBall(int16 *x)
 {

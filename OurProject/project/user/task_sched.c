@@ -38,10 +38,25 @@ static int    last_result  = TASK_RESULT_RUNNING;
  * ════════════════════════════════════════════════════════════ */
 uint8 task_fast_line = 1;   /* 高速巡线开关：1=纯巡线（默认），0=完整调试（FAST/DBG 命令切换） */
 
+/* 停车线检测：A 点垂直启停线（横跨跑道）→ ≥3 路连续红外同时亮（00000111）
+ * 简化方案（学长参考）：检测到即停车，不做倒车往返/yaw 判定 */
+static uint8 line_is_stop(const int s[8])
+{
+    uint8 i, run = 0, max_run = 0;
+    for (i = 0; i < 8; i++)
+    {
+        if (s[i]) { run++; if (run > max_run) max_run = run; }
+        else run = 0;
+    }
+    return (max_run >= 3);
+}
+
 static int line_drive_run(uint8 enable_ball, int16 ball_target)
 {
     int s[8];
     uint8  display_cd = 0;
+    uint8  stop_cd = 0;             /* 停车线连续确认计数 */
+    uint8  stop_done = 0;           /* 停车完成标志 */
     uint32 start_tick, last_imu_tick, elapsed_ms;
     uint16 sec, tenth, imu_dt;
     int    result = TASK_RESULT_OK;
@@ -66,13 +81,31 @@ static int line_drive_run(uint8 enable_ball, int16 ball_target)
     {
         int   err;
 
-        if (!task_fast_line)   /* 调试模式：IMU 采样 + yaw 积分 */
+        if (!task_fast_line)   /* 调试模式才采样 IMU（停车已不用 yaw，高速巡线不采样） */
         {
             EA = 0; imu_dt = (uint16)((pit_tick - last_imu_tick) * 5); last_imu_tick = pit_tick; EA = 1;
             imu_ctrl_tick(imu_dt);
         }
 
         IRPHOTO_Read(s);
+
+        /* ═══ 任务 2 停车（简化，学长方案）：起步忽略 3s → 检测到停车线连续 3 帧 → 立即停 ═══
+         * 任务 5/6（球稳）不停车，靠超时退出。 */
+        if (!enable_ball)
+        {
+            uint8 is_st = line_is_stop(s);
+            EA = 0; elapsed_ms = (pit_tick - start_tick) * 5; EA = 1;
+
+            if (elapsed_ms < 1000)      /* 起步忽略 车从 A 点压线出发 */
+            {
+                stop_cd = 0;
+            }
+            else if (is_st)             /* 检测到停车线（≥3 路连续亮）× 连续 3 帧 → 立即停 */
+            {
+                if (++stop_cd >= 3) { result = TASK_RESULT_OK; stop_done = 1; }
+            }
+            else stop_cd = 0;
+        }
 
         /* 巡线 + 可选球稳 */
         err = calc_error(s);
@@ -88,31 +121,7 @@ static int line_drive_run(uint8 enable_ball, int16 ball_target)
                 sec   = (uint16)(elapsed_ms / 1000);
                 tenth = (uint16)((elapsed_ms % 1000) / 100);
 
-                WcTFT_SetColor(RGB565_WHITE, RGB565_BLACK);
-                /* 每行一个参数（核心项，其余看 USB-CDC 串口） */
-                WcTFT_PrintAt(0, 16, "T:");
-                WcTFT_PrintIntAt(24, 16, (int32)sec);
-                WcTFT_PrintAt(48, 16, ".");
-                WcTFT_PrintIntAt(56, 16, (int32)tenth);
-                WcTFT_PrintAt(96, 16, "s");
-                WcTFT_PrintAt(0, 32, "E:");
-                WcTFT_PrintIntAt(24, 32, (int32)err);
-                WcTFT_PrintAt(0, 48, "D1:");
-                WcTFT_PrintIntAt(24, 48, (int32)line_duty_lr);
-                WcTFT_PrintAt(0, 64, "D2:");
-                WcTFT_PrintIntAt(24, 64, (int32)line_duty_rr);
-                WcTFT_PrintAt(0, 80, "E1:");
-                WcTFT_PrintIntAt(24, 80, (int32)motor_get_encoder_lr());
-                WcTFT_PrintAt(0, 96, "E2:");
-                WcTFT_PrintIntAt(24, 96, (int32)motor_get_encoder_rr());
-                if (enable_ball)
-                {
-                    WcTFT_PrintAt(0, 112, "B:");
-                    WcTFT_PrintFloatAt(24, 112, (double)ball_cm_x10 / 10.0, 1);
-                    WcTFT_PrintAt(0, 128, "T:");
-                    WcTFT_PrintFloatAt(24, 128, (double)ball_pid.Target / 10.0, 1);
-                }
-                /* 陀螺仪数据不占屏幕，走 USB-CDC 串口（GZ=/YAW=） */
+                /* ═══ TFT 屏幕显示已删（占性能），调试数据全走 USB-CDC 串口帧 ═══ */
 
                 /* USB-CDC 串口调试帧（一行一帧，空格分隔，便于上位机解析） */
                 {
@@ -150,6 +159,9 @@ static int line_drive_run(uint8 enable_ball, int16 ball_target)
                 }
             }
         }
+
+        /* 任务 2 停车完成：退出 */
+        if (stop_done) break;
 
         /* 超时保护：整圈 30s 兜底（任务 2 限 20s 留余量；5/6 同限） */
         EA = 0; elapsed_ms = (pit_tick - start_tick) * 5; EA = 1;
@@ -345,6 +357,10 @@ int task_sched_result(void)
 void task_sched_run(void)
 {
     int result;
+
+    /* 任务 2 用更快巡线参数；其他任务（3/5/6）用球稳参数（菜单 Steer T2 / Steer 5/6 分别调） */
+    if (current_task == TASK_2) { line_ctrl_apply_t2(); base_speed = base_speed_t2; }
+    else { line_ctrl_apply_other(); base_speed = base_speed_ot; }
 
     switch (current_task)
     {

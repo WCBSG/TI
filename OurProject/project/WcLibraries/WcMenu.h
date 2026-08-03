@@ -2,12 +2,11 @@
 * 文件名称          WcMenu.h
 * 说明              栈式菜单系统，支持参数编辑 —— TFT180 显示
 *
-* 按键模型（5 键）：
+* 按键模型（4 键，主板 b2/b3/b4/P3.2）：
 *   Key1 → Menu_Inc()    正常=上移光标  编辑中=参数+1步长
 *   Key2 → Menu_Dec()    正常=下移光标  编辑中=参数-1步长
 *   Key3 → Menu_Edit()   正常=Ok/进入编辑  编辑中=保存退出
 *   Key4 → Menu_Cancel() 正常=返回上层  编辑中=取消编辑(还原值)
-*   Key5 → Menu_Home(main_page) 主菜单→Launch / 子页→回主菜单(栈满删栈底)
 *
 * 参数编辑流程：
 *   1. 在带 value 指针的菜单项上按 Key3 → 进入编辑态 (editing=1)
@@ -68,7 +67,6 @@ void     Menu_Inc(void);                        /* Key1: 上移/参数+ */
 void     Menu_Dec(void);                        /* Key2: 下移/参数- */
 void     Menu_Edit(void);                       /* Key3: Ok/进入编辑/保存退出 */
 void     Menu_Cancel(void);                     /* Key4: 返回/取消编辑 */
-void     Menu_Home(MenuPage *main_page);        /* Key5: 回主菜单/主菜单→Launch */
 
 /* ── 绘制 ── */
 void     Menu_Draw(void);

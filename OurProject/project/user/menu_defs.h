@@ -18,7 +18,9 @@
 extern MenuPage page_main;        /* 主菜单页 */
 extern MenuPage page_launch;      /* Launch 确认页 */
 extern uint8   launch_triggered;  /* cb_launch 回调置位 → main 退出菜单循环 */
-extern int16   base_speed;        /* 基准 duty（0-10000 满占空比），差速开环发车用 */
+extern int16   base_speed;        /* 当前激活基准 duty（任务启动时应用） */
+extern int16   base_speed_t2;     /* 任务 2 基准 duty（40%） */
+extern int16   base_speed_ot;     /* 其他任务基准 duty（21%） */
 extern int16   led_duty;          /* 灯带亮度 PWM duty（0-10000），PA2 输出 */
 
 #endif

@@ -248,8 +248,7 @@ void main(void)
     config_load();
     line_ctrl_init();
     ball_ctrl_init();
-    if (config_valid())
-        base_speed = flash_buff[1];   /* 恢复持久化的基准 duty */
+    /* base_speed 由 task_sched_run 按任务应用（base_speed_t2 / base_speed_ot），不再从 flash 恢复 */
 
     imu_ctrl_init();   /* 陀螺仪：硬件 SPI3 + 静止 1s 零点标定（失败不阻塞） */
 
