@@ -1,16 +1,6 @@
-/*********************************************************************************************************************
-* 文件名称          isr.c
-* 说明              中断服务 — 精简版（只保留项目实际使用的中断）
-*
-* 实际使能的中断：
-*   1. DMA_UART3   OpenART 摄像头 UART3 接收（protocol.c，逐字节 DMA 中断）
-*   2. TM0         servo 舵机 5ms PIT（pit_ms_init(TIM0_PIT) → Servo_Timer_Callback）
-*   3. TM1         PIT 5ms 时基（main 里 pit_ms_init(PIT_ENCODER=TIM1_PIT) → pit_handler）
-*
-* 说明：
-*   - USB 中断在库 usb.c（usb_isr, interrupt 25），不在此文件。
-*   - 其余 GPIO/外部中断/其他定时器/mt9v03x 均未使用，已删除（避免空向量死机）。
-********************************************************************************************************************/
+/* isr.c — 中断服务（精简，只保留实际使能的中断）
+ * DMA_UART3：OpenART UART3 接收（protocol 逐字节）| TM0：servo 5ms 舵机控制
+ * TM1：5ms 时基（pit_tick 计时）；USB 中断在库 usb.c */
 
 #include "zf_common_headfile.h"
 

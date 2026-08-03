@@ -1,17 +1,6 @@
-/*********************************************************************************************************************
-* 文件名称          servo.h
-* 说明              舵机摆杆控制 — 像素域 PID + 前馈（真机验证），5ms PIT 中断驱动
-*
-* 来源：舵机项目 servo.c（移植自 E09 servo_control），真机验证过
-* 控制律（像素域，直接 cx 像素）：
-*   error = cx - g_servo_target
-*   control = KP*e + KI*Σe + KD*D低通 + 前馈(破静摩擦)
-*   duty = servo_center_duty ± control
-*
-* 合并适配（2026-08）：SERVO_CENTER/IMAGE_CENTER 宏 → 标定变量
-*   servo_center_duty（本车实测 4500）/ pixel_zero（本车实测 175）
-*   PID 参数保留舵机项目真机值（宏定死）
-********************************************************************************************************************/
+/* servo.h — 舵机摆杆控制：像素域 PID+前馈（真机验证），5ms TIM0 中断驱动
+ * 控制律：error=cx-g_servo_target → control=KP*e+KI*Σe+KD*D低通+前馈 → duty=center±control
+ * 标定参数变量化（本车实测 4500/175/11，菜单可调）；PID 参数宏定死（真机值） */
 
 #ifndef __SERVO_H_
 #define __SERVO_H_
