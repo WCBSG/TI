@@ -11,7 +11,6 @@
 
 #include "line_ctrl.h"
 #include "Motor.h"
-#include "config.h"
 
 int16 line_duty_lr = 0;   /* 诊断：最近一次左轮输出 duty */
 int16 line_duty_rr = 0;   /* 诊断：最近一次右轮输出 duty */

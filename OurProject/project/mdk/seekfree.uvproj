@@ -930,16 +930,6 @@
               <FilePath>..\user\line_ctrl.h</FilePath>
             </File>
             <File>
-              <FileName>cmd_ctrl.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\user\cmd_ctrl.c</FilePath>
-            </File>
-            <File>
-              <FileName>cmd_ctrl.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\user\cmd_ctrl.h</FilePath>
-            </File>
-            <File>
               <FileName>task_sched.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\user\task_sched.c</FilePath>
@@ -958,16 +948,6 @@
               <FileName>KEY.h</FileName>
               <FileType>5</FileType>
               <FilePath>..\user\KEY.h</FilePath>
-            </File>
-            <File>
-              <FileName>config.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\user\config.c</FilePath>
-            </File>
-            <File>
-              <FileName>config.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\user\config.h</FilePath>
             </File>
             <File>
               <FileName>menu_defs.c</FileName>

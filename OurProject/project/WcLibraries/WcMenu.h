@@ -10,8 +10,11 @@
 *
 * 参数编辑流程：
 *   1. 在带 value 指针的菜单项上按 Key3 → 进入编辑态 (editing=1)
-*   2. 编辑态中 Key1/Key2 调整值, Key3 保存, Key4 取消还原, Key5 禁用
+*   2. 编辑态中 Key1/Key2 调整值, Key3 保存, Key4 取消还原
 *   3. 退出编辑态后自动重绘
+*
+* 比赛清理（2026-08）：删未使用 API（Menu_SwitchTo/Clear/IsActive/IsEditing/
+* GetDepth/GetCurrentId）+ MENU_ITEM_VAL/BOOL 宏；5 键→4 键
 ********************************************************************************************************************/
 
 #ifndef _WcMenu_h_
@@ -43,26 +46,18 @@ typedef struct {
 
 /* ── 构造宏 ── */
 #define MENU_ITEM(_id, _name, _cb)              { (_id), (_name), (_cb), NULL, 0,     0,      0 }
-#define MENU_ITEM_VAL(_id, _name, _val_ptr, _st) { (_id), (_name), NULL, (_val_ptr), (_st), -32768, 32767 }
 #define MENU_ITEM_VAL_RANGE(_id, _name, _val_ptr, _st, _min, _max) { (_id), (_name), NULL, (_val_ptr), (_st), (_min), (_max) }
-#define MENU_ITEM_BOOL(_id, _name, _val_ptr)      { (_id), (_name), NULL, (_val_ptr), 1,     0,      1 }
 #define MENU_PAGE(_title, _items, _cnt)          { (_title), (_items), (_cnt), 0, 0, 0, 0 }
 
 /* ── 初始化和状态 ── */
 void     Menu_Init(void);
-uint8    Menu_IsActive(void);
-uint8    Menu_IsEditing(void);
 uint8    Menu_IsTop(MenuPage *page);              /* 给定页指针是否是栈顶 */
-uint8    Menu_GetCurrentId(void);
-uint8    Menu_GetDepth(void);
 
 /* ── 栈操作 ── */
 void     Menu_Push(MenuPage *page);
 void     Menu_Pop(void);
-void     Menu_SwitchTo(MenuPage *page);
-void     Menu_Clear(void);
 
-/* ── 5 键导航 ── */
+/* ── 4 键导航 ── */
 void     Menu_Inc(void);                        /* Key1: 上移/参数+ */
 void     Menu_Dec(void);                        /* Key2: 下移/参数- */
 void     Menu_Edit(void);                       /* Key3: Ok/进入编辑/保存退出 */

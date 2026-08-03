@@ -6,6 +6,8 @@
 *   正常选中: "> Name: val"  白底黑字
 *   编辑中:   ">*Name: val"  蓝底白字
 *   普通:     "  Name: val"  白字黑底
+*
+* 比赛清理（2026-08）：删未使用 API（SwitchTo/Clear/IsActive/IsEditing/GetDepth/GetCurrentId）
 ********************************************************************************************************************/
 
 #include "WcMenu.h"
@@ -43,6 +45,10 @@ static int16 clamp_val(int16 v, const MenuItem *item)
 
 /* ── 栈操作 ── */
 
+void Menu_Init(void) { top = -1; }
+
+uint8 Menu_IsTop(MenuPage *page) { return (page && stack_top() == page) ? 1 : 0; }
+
 void Menu_Push(MenuPage *page)
 {
     if (!page || top >= STACK_MAX - 1) return;
@@ -60,18 +66,6 @@ void Menu_Pop(void)
     top--;
     Menu_Draw();
 }
-
-void Menu_SwitchTo(MenuPage *page)
-{
-    if (!page || top < 0) return;
-    page->cursor  = 0;
-    page->scroll  = 0;
-    page->editing = 0;
-    stack[top] = page;
-    Menu_Draw();
-}
-
-void Menu_Clear(void) { top = -1; WcTFT_Clear(RGB565_BLACK); }
 
 /* ── 4 键导航 ── */
 
@@ -170,15 +164,6 @@ void Menu_Cancel(void)
         Menu_Pop();
     }
 }
-
-/* ── 其他查询 ── */
-
-void Menu_Init(void) { top = -1; }
-uint8 Menu_IsActive(void)  { return (uint8)(top >= 0); }
-uint8 Menu_IsEditing(void) { MenuPage *p = stack_top(); return (p && p->editing) ? 1 : 0; }
-uint8 Menu_GetDepth(void)  { return (uint8)(top + 1); }
-uint8 Menu_GetCurrentId(void) { MenuPage *p = stack_top(); return (p && p->count > 0) ? p->items[p->cursor].id : 0; }
-uint8 Menu_IsTop(MenuPage *page) { return (page && stack_top() == page) ? 1 : 0; }
 
 /* ── 绘制 ── */
 

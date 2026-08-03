@@ -7,7 +7,7 @@
 *   [回菜单]    结果页按 Key4 返回主菜单，可重新选任务
 *
 * 比赛清理（2026-08）：已删 IR/PROTO/UTEST/HOLD 测试函数、IMU/编码器/LED
-* 调试外设、串口任务命令；保留菜单调参（Steer/Ball PID）+ BP/SV 串口命令。
+* 调试外设、cmd_ctrl 串口命令模块（现场不允许连电脑）；保留菜单调参（Steer/Ball PID）。
 ********************************************************************************************************************/
 
 #include "zf_common_headfile.h"
@@ -17,11 +17,9 @@
 #include "IRPHOTO.h"
 #include "Motor.h"
 #include "KEY.h"
-#include "config.h"
 #include "protocol.h"
 #include "task_sched.h"
 #include "ball_ctrl.h"
-#include "cmd_ctrl.h"    /* USB-CDC 命令：BP 球稳调参 / SV 舵机测试 */
 
 void main(void)
 {
@@ -36,15 +34,11 @@ void main(void)
     Protocol_Init();
     Protocol_Start();   /* 启动 UART3 接收：中断自动维护球位置（菜单/任务都能读） */
 
-    /* 配置加载必须先于任何消费 flash_buff 的初始化，否则持久化参数不生效 */
-    config_load();
     line_ctrl_init();
     ball_ctrl_init();
-    /* base_speed 由 task_sched_run 按任务应用（base_speed_t2 / base_speed_ot），不再从 flash 恢复 */
+    /* base_speed 由 task_sched_run 按任务应用（base_speed_t2 / base_speed_ot） */
 
     pit_ms_init(PIT_ENCODER, 5, pit_handler);   /* 5ms 硬件时基（计时） */
-
-    cmd_ctrl_init();   /* USB-CDC 命令：BP 球稳调参 / SV 舵机测试 */
 
     /* ── 启动主菜单 ── */
     Menu_Init();
@@ -57,8 +51,6 @@ void main(void)
         /* ── 菜单阶段：按键导航 + USB-CDC 命令，等待 Launch 选任务 ── */
         while (!launch_triggered)
         {
-            cmd_poll();                    /* USB-CDC 命令：BP 调参 / SV 舵机测试 */
-
             button_control(KEY_REPEAT_KEY1 | KEY_REPEAT_KEY2);
 
             if (key1_flag) { key1_flag = 0; Menu_Inc();           }  /* b2: 上/+ */
@@ -70,8 +62,7 @@ void main(void)
                 key4_flag = 0;
                 if (Menu_IsTop(&page_main))
                 {
-                    config_save();              /* 主菜单按返回 → 保存配置并进 Launch */
-                    Menu_Push(&page_launch);
+                    Menu_Push(&page_launch);    /* 主菜单按返回 → 进 Launch 选任务 */
                 }
                 else
                 {

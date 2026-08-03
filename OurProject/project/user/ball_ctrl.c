@@ -9,7 +9,6 @@
 ********************************************************************************************************************/
 
 #include "ball_ctrl.h"
-#include "config.h"
 
 /* ── 标定参数默认值（实测：2026-08） ── */
 int16 servo_center_duty = SERVO_DUTY_CENTER;   /* 4500 摆杆水平 */
@@ -38,18 +37,7 @@ void ball_ctrl_init(void)
     ball_pid.OutMin = -300;
     ball_pid.Target = 0;
 
-    if (config_valid())
-    {
-        ball_pid.Kp         = flash_buff[2];
-        ball_pid.Ki         = flash_buff[3];
-        ball_pid.Kd         = flash_buff[4];
-        ball_pid.OutMax     = flash_buff[5];
-        ball_pid.OutMin     = flash_buff[6];
-        servo_center_duty   = flash_buff[7];
-        pixel_zero          = flash_buff[8];
-        px_per_cm           = flash_buff[9];
-        ball_target_cm_x10  = flash_buff[10];
-    }
+    /* 参数写死默认值（实测最优），无断电保持（config 模块已删） */
 
     PID_Reset(&ball_pid);
     ball_pid.Target = 0;

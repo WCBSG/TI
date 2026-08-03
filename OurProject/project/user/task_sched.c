@@ -18,7 +18,6 @@
 #include "IRPHOTO.h"
 #include "Motor.h"
 #include "KEY.h"
-#include "config.h"
 #include "menu_defs.h"
 #include "WcTFT180.h"
 
@@ -53,7 +52,6 @@ static int line_drive_run(uint8 enable_ball, int16 ball_target)
     uint8  stop_cd = 0;             /* 停车线连续确认计数 */
     uint8  stop_done = 0;           /* 停车完成标志 */
     uint32 start_tick, last_ball_tick, elapsed_ms;
-    uint16 sec, tenth;
     int    result = TASK_RESULT_OK;
 
     /* 任务 2/5/6 超时保护（整圈 30s，任务 2 限 20s 但留余量） */
