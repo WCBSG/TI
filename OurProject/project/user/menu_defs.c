@@ -24,20 +24,20 @@
 
 /* ── Steer T2 页：任务 2 巡线参数（更快） ── */
 static const MenuItem steer2_items[] = {
-    MENU_ITEM_VAL_RANGE(1, "Kp",     &kp_t2,        10,   0,   500),
+    MENU_ITEM_VAL_RANGE(1, "Kp",     &kp_t2,        1,   0,   500),
     MENU_ITEM_VAL_RANGE(2, "Smooth", &smooth_t2,     1,   0,   100),
-    MENU_ITEM_VAL_RANGE(3, "Lim",    &lim_t2,       10, 100,   200),
-    MENU_ITEM_VAL_RANGE(4, "Decel",  &dec_t2,        5,   0,    50),
+    MENU_ITEM_VAL_RANGE(3, "Lim",    &lim_t2,       1, 100,   200),
+    MENU_ITEM_VAL_RANGE(4, "Decel",  &dec_t2,        1,   0,    50),
     MENU_ITEM_VAL_RANGE(5, "Spd",    &base_speed_t2, 100, 0,  6000),
 };
 static MenuPage page_steer2 = MENU_PAGE("Steer T2", steer2_items, 5);
 
 /* ── Steer 5/6 页：任务 5/6 巡线参数（更稳） ── */
 static const MenuItem steer56_items[] = {
-    MENU_ITEM_VAL_RANGE(1, "Kp",     &kp_ot,        10,   0,   500),
+    MENU_ITEM_VAL_RANGE(1, "Kp",     &kp_ot,        1,   0,   500),
     MENU_ITEM_VAL_RANGE(2, "Smooth", &smooth_ot,     1,   0,   100),
-    MENU_ITEM_VAL_RANGE(3, "Lim",    &lim_ot,       10, 100,   200),
-    MENU_ITEM_VAL_RANGE(4, "Decel",  &dec_ot,        5,   0,    50),
+    MENU_ITEM_VAL_RANGE(3, "Lim",    &lim_ot,        1, 100,   200),
+    MENU_ITEM_VAL_RANGE(4, "Decel",  &dec_ot,        1,   0,    50),
     MENU_ITEM_VAL_RANGE(5, "Spd",    &base_speed_ot, 100, 0,  6000),
 };
 static MenuPage page_steer56 = MENU_PAGE("Steer 5/6", steer56_items, 5);

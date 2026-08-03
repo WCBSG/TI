@@ -36,13 +36,13 @@ extern int16 ball_target_cm_x10; /* 任务6 球目标位置（0.1cm，相对 O�
 #define SERVO_I_DEADZONE 50      /* 积分累积死区：|error|<该值才积分 */
 #define SERVO_FF_DEADZONE 8      /* 前馈死区：|error|>该值才加前馈 */
 
-/* ── 任务 3 特调参数（与归中/任务5/6 分开，现场调宏） ──
- * 任务 3 限 5s：O→+5→-5 快速到位，可能需要更强 Kp/前馈（推得更猛）
- * 初值=默认，真机实测后单独调整 */
+/* ── 任务 3 特调参数（与归中/任务5/6 分开） ──
+ * 基于 E09（KD800 强刹车/KF5 弱前馈/KI0），真机过冲 1.5cm → KD 升到 1100 增强刹车
+ * 真机对比调：超调→升 KD；不到位/慢→加 KI 破静摩擦或升 KF */
 #define SERVO_T3_KP  10.0f
-#define SERVO_T3_KI  0.1f
-#define SERVO_T3_KD  600.0f
-#define SERVO_T3_KF  20.0f
+#define SERVO_T3_KI  0.0f
+#define SERVO_T3_KD  1100.0f
+#define SERVO_T3_KF  5.0f
 
 /* ════════════════════════════════════════════════════════════
  * 5ms 周期控制（PIT 中断驱动舵机追踪）

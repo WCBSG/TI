@@ -287,6 +287,6 @@ void task_sched_run(void)
     Servo_Enable();           /* 任务结束恢复常开（任务 2 运行中已关闭，其他任务回中后恢复控球） */
     task_sched_show_result(result);
 
-    /* 任务 3：结果页保持球位（-5cm）避免扯皮，退出结果页才回中 */
-    if (current_task == TASK_3) Servo_Control_Init();
+    /* 任务 3：结果页保持球位（-5cm）避免扯皮，退出结果页回中后恢复常开（否则舵机禁用无反应） */
+    if (current_task == TASK_3) { Servo_Control_Init(); Servo_Enable(); }
 }
