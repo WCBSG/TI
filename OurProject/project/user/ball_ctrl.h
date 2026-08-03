@@ -36,6 +36,8 @@ extern int16 ball_target_cm_x10;  /* 球目标位置（0.1cm，相对 O；任务
 extern PID_t ball_pid;            /* 球位置 PID（位置式） */
 extern int16 ball_cm_x10;         /* 最近一次球位置（0.1cm，相对 O；tick 后更新） */
 extern int16 ball_duty_out;       /* 最近一次舵机输出 duty（诊断显示） */
+extern uint8 ball_feedback_fresh;  /* 1=最近 200ms 内收到过视觉帧且当前检测有效 */
+extern uint8 ball_feedback_updated;/* 1=本次 tick 收到新的有效球位置 */
 
 /* ── 接口 ── */
 void ball_ctrl_init(void);                    /* 舵机 PWM + 球 PID + 标定加载 */

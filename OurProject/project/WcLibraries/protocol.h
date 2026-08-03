@@ -21,12 +21,13 @@
 /* ── 协议状态（中断自动维护，全局可读） ── */
 extern int16 proto_ball_x;       /* 最新球 X 坐标（像素），仅 proto_ball_valid=1 时有效 */
 extern int16 proto_ball_valid;   /* 1=有有效球数据，0=未检测到（int16 以匹配菜单 BOOL 项） */
+extern volatile uint16 proto_ball_frame_id; /* 每收到一帧 B/N 都递增，用于判断数据新鲜度 */
 
 /* ── 初始化和控制 ── */
 void Protocol_Init(void);        /* 初始化 UART3 硬件（不使能接收） */
 void Protocol_Start(void);       /* 启动接收：使能 DMA 中断 + 开始接收，中断自动维护球位置 */
 void Protocol_Stop(void);        /* 停止接收：失能 DMA 中断 */
-uint8 Protocol_ReadBall(int16 *x); /* 读取最新球 X 坐标并消费（返回 1=有效, 0=无新数据） */
+uint8 Protocol_ReadBall(int16 *x); /* 快照当前球 X（不清状态），返回 1=当前检测有效 */
 
 /* ── 调试（UTEST/PROTO 测试用） ── */
 uint8 Protocol_DebugGet(uint8 *out, uint8 max); /* 读出积压的原始接收字节（消费） */

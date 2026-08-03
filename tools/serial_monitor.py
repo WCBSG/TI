@@ -11,7 +11,10 @@ STC32 USB-CDC 串口调试帧监视器
     py tools/serial_monitor.py                # 自动找端口，默认 115200
     py tools/serial_monitor.py --port COM5     # 指定端口
     py tools/serial_monitor.py --baud 115200   # 指定波特率
-    py tools/serial_monitor.py --send "T2"     # 打开后先发命令（启动任务），然后持续监听
+    py tools/serial_monitor.py --send "BP KP 8" --send HOLD  # 依次调参并启动中点保持
+    py tools/serial_monitor.py --interactive             # 监听时可直接输入 BP/HOLD/STOP
+    py tools/serial_monitor.py --send HOLD --duration 5  # 采集 5 秒后发送 STOP 并退出
+    py tools/serial_monitor.py --preposition 4200 --send HOLD --duration 7
     py tools/serial_monitor.py --stop-same 5   # 连续 5 帧相同则自动退出（默认）
     py tools/serial_monitor.py --stop-same 0   # 关闭相同帧停止
     py tools/serial_monitor.py --stop-idle 3   # 3s 无新帧（任务结束/车停）自动退出（默认）
@@ -20,11 +23,12 @@ STC32 USB-CDC 串口调试帧监视器
     py tools/serial_monitor.py --list          # 只列出端口
 
 交互：
+    --interactive 时输入命令并回车，可在监听过程中实时调参
     Ctrl+C  退出
     连续 N 帧内容相同（去时间戳）→ 自动退出
     超 N 秒无新帧（任务结束/车停）→ 自动退出
 """
-import sys, time, argparse, datetime
+import sys, time, argparse, datetime, queue, threading
 import serial
 import serial.tools.list_ports
 
@@ -42,6 +46,7 @@ COLOR = {
     "TGT":  "\033[36m",
     "PX":   "\033[36m",
     "V":    "\033[36m",
+    "BF":   "\033[36m",   # 球反馈新鲜度
     "SD":   "\033[31m",
     "GZ":   "\033[31m",   # 陀螺仪角速度
     "YAW":  "\033[33m",   # 航向角（度）
@@ -90,18 +95,43 @@ def colorize(kv):
     return "  ".join(parts)
 
 
+def read_commands(command_queue):
+    """后台读取控制台命令，串口写入仍由主线程完成。"""
+    while True:
+        try:
+            text = input()
+        except (EOFError, KeyboardInterrupt):
+            return
+        text = text.strip()
+        if text:
+            command_queue.put(text)
+
+
 def main():
     ap = argparse.ArgumentParser(description="STC32 USB-CDC 调试帧监视器")
     ap.add_argument("--port", help="串口名，如 COM5；缺省自动找")
     ap.add_argument("--baud", type=int, default=115200)
-    ap.add_argument("--send", help="打开端口后先发送的命令（如 IRTEST\\n），然后持续监听")
+    ap.add_argument("--send", action="append",
+                    help="打开端口后发送的命令；可重复指定多条")
     ap.add_argument("--log", help="同时把原始输出写到此文件")
     ap.add_argument("--list", action="store_true", help="只列出端口后退出")
     ap.add_argument("--raw", action="store_true", help="不解析不上色，原样显示")
+    ap.add_argument("--interactive", action="store_true",
+                    help="监听过程中从控制台输入命令并发送")
     ap.add_argument("--stop-same", type=int, default=5,
                     help="连续 N 帧内容相同（去时间戳）则自动退出；0=不启用")
     ap.add_argument("--stop-idle", type=float, default=3.0,
                     help="超过 N 秒无新帧则判定任务结束自动退出；0=不启用")
+    ap.add_argument("--duration", type=float, default=0,
+                    help="采集 N 秒后发送 STOP 并退出；0=不限制")
+    ap.add_argument("--preposition", type=int,
+                    help="测试前先输出该舵机 duty，再回到 --center")
+    ap.add_argument("--preposition-time", type=float, default=1.0,
+                    help="预定位 duty 保持秒数，默认 1.0")
+    ap.add_argument("--center", type=int, default=4500,
+                    help="预定位后回到的舵机中位 duty，默认 4500")
+    ap.add_argument("--center-time", type=float, default=0.3,
+                    help="回中后等待秒数，默认 0.3")
     args = ap.parse_args()
 
     if args.list:
@@ -132,21 +162,54 @@ def main():
 
     print(f"[*] 已连接 {port} @ {args.baud}，Ctrl+C 退出\n")
 
-    if args.send:
-        cmd = args.send.encode("utf-8", "ignore")
-        if not cmd.endswith(b"\n"):
-            cmd += b"\n"
-        ser.write(cmd)
+    if args.preposition is not None:
+        if not 3500 <= args.preposition <= 5500 or not 3500 <= args.center <= 5500:
+            print("[!] --preposition/--center 必须在 3500..5500")
+            sys.exit(2)
+        ser.write(f"SV {args.preposition}\n".encode("ascii"))
         ser.flush()
-        print(f"[*] 已发送: {cmd!r}")
+        print(f"[*] 预定位: SV {args.preposition}，保持 {args.preposition_time:g}s")
+        time.sleep(max(0, args.preposition_time))
+        ser.write(f"SV {args.center}\n".encode("ascii"))
+        ser.flush()
+        print(f"[*] 回中: SV {args.center}，等待 {args.center_time:g}s")
+        time.sleep(max(0, args.center_time))
+
+    if args.send:
+        for text in args.send:
+            cmd = text.encode("utf-8", "ignore")
+            if not cmd.endswith(b"\n"):
+                cmd += b"\n"
+            ser.write(cmd)
+            ser.flush()
+            print(f"[*] 已发送: {cmd!r}")
+            time.sleep(0.05)
+
+    command_queue = queue.Queue()
+    if args.interactive:
+        threading.Thread(target=read_commands, args=(command_queue,), daemon=True).start()
+        print("[*] 交互模式：输入 BP/HOLD/T3/STOP 等命令后回车")
 
     buf = b""
+    started_at = time.time()
     last_frame = None      # 上一帧内容（去时间戳）
     same_cnt = 0           # 连续相同帧计数
     last_activity = time.time()   # 最后收到数据的时间
 
     try:
         while True:
+            if args.duration > 0 and time.time() - started_at >= args.duration:
+                ser.write(b"STOP\n")
+                ser.flush()
+                print(f"\n[*] 已采集 {args.duration:g}s，发送 STOP 并退出")
+                return
+
+            while not command_queue.empty():
+                text = command_queue.get_nowait()
+                ser.write((text + "\n").encode("utf-8", "ignore"))
+                ser.flush()
+                print(f"[*] 已发送: {text}")
+
             data = ser.read(256)
             if not data:
                 # 无数据超时：任务结束/车停后数据流停止

@@ -46,11 +46,11 @@ static uint8 validate_bounds(void)
     uint8 idx;
     static const int16 lo[] = {
         /* [0]steer_kp [1]base | [2-6]ball Kp/Ki/Kd/OutMax/OutMin | [7-10]标定 */
-        0,  0,  0,0,0,  0, -500,  1500, 0, 1, -50
+        0,  0,  0,0,0,  0, -500,  3500, 0, 1, -50
     };
     static const int16 hi[] = {
         /* [0]steer_kp [1]base | [2-6]ball Kp/Ki/Kd/OutMax/OutMin | [7-10]标定 */
-        500, 6000,  200,200,200,  500, 0,  7500, 320, 200, 50
+        500, 6000,  200,200,200,  500, 0,  5500, 319, 200, 50
     };
     for (idx = 0; idx <= 10; idx++)
         if (flash_buff[idx] < lo[idx] || flash_buff[idx] > hi[idx])

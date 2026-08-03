@@ -258,9 +258,10 @@ static void hold_run(void)
         {
             dbg_cd = 0;
             n = 0;
-            n += zf_sprintf((int8 *)(buf + n), "B=%d PX=%d V=%d SD=%d\n",
+            n += zf_sprintf((int8 *)(buf + n), "B=%d PX=%d V=%d BF=%d SD=%d\n",
                             (int32)ball_cm_x10, (int32)proto_ball_x,
-                            (int32)proto_ball_valid, (int32)ball_duty_out);
+                            (int32)proto_ball_valid, (int32)ball_feedback_fresh,
+                            (int32)ball_duty_out);
             usb_cdc_write_buffer((const uint8 *)buf, (uint16)n);
         }
 

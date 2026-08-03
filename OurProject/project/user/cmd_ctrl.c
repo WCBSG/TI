@@ -156,6 +156,8 @@ static void cmd_servo(void)
 static void cmd_ball_param(void)
 {
     int32 val = 0;
+    int32 min_val = 0, max_val = 0;
+    uint8 neg = 0, known = 1;
     uint8 i = 2, j = 0;
     char param[8];
     char buf[64];
@@ -165,10 +167,33 @@ static void cmd_ball_param(void)
     while (cmd_buf[i] >= 'A' && cmd_buf[i] <= 'Z' && j < 7) param[j++] = cmd_buf[i++];
     param[j] = '\0';
     while (cmd_buf[i] == ' ') i++;
+    if (cmd_buf[i] == '-') { neg = 1; i++; }
     while (cmd_buf[i] >= '0' && cmd_buf[i] <= '9')
     {
         val = val * 10 + (cmd_buf[i] - '0');
         i++;
+    }
+    if (neg) val = -val;
+
+    if      (cmd_eq(param, "KP"))  { min_val = 0; max_val = 200; }
+    else if (cmd_eq(param, "KI"))  { min_val = 0; max_val = 200; }
+    else if (cmd_eq(param, "KD"))  { min_val = 0; max_val = 200; }
+    else if (cmd_eq(param, "SC"))  { min_val = SERVO_DUTY_MIN; max_val = SERVO_DUTY_MAX; }
+    else if (cmd_eq(param, "PZ"))  { min_val = 0; max_val = 319; }
+    else if (cmd_eq(param, "PCM")) { min_val = 1; max_val = 200; }
+    else if (cmd_eq(param, "TGT")) { min_val = -50; max_val = 50; }
+    else known = 0;
+
+    if (!known)
+    {
+        usb_cdc_write_string("[BP] KP/KI/KD/SC/PZ/PCM/TGT <val>\n");
+        return;
+    }
+    if (val < min_val || val > max_val)
+    {
+        n += zf_sprintf((int8 *)(buf + n), "[BP] range %d..%d\n", min_val, max_val);
+        usb_cdc_write_buffer((const uint8 *)buf, (uint16)n);
+        return;
     }
 
     if      (cmd_eq(param, "KP"))  { ball_pid.Kp = (int16)val; }
@@ -178,7 +203,6 @@ static void cmd_ball_param(void)
     else if (cmd_eq(param, "PZ"))  { pixel_zero = (int16)val; }
     else if (cmd_eq(param, "PCM")) { px_per_cm = (int16)val; }
     else if (cmd_eq(param, "TGT")) { ball_target_cm_x10 = (int16)val; }
-    else { usb_cdc_write_string("[BP] KP/KI/KD/SC/PZ/PCM/TGT <val>\n"); return; }
 
     n += zf_sprintf((int8 *)(buf + n), "[BP] %s=%d\n", param, (int32)val);
     usb_cdc_write_buffer((const uint8 *)buf, (uint16)n);

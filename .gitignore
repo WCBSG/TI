@@ -8,6 +8,7 @@ Thumbs.db
 /E09_timer_demo/
 /stc-ti/
 /Zui1/
+/舵机/
 
 # IDE / Editor
 *.uvgui.*
@@ -29,3 +30,6 @@ OPenMV RT5/omv-rt-visual_module/
 *.mp4
 *.avi
 *.mov
+# 串口调试日志
+OurProject/project/mdk/*.log
+OurProject/project/mdk/t5_log.txt

@@ -23,6 +23,7 @@ static uint8 rx_idx;
 /* ── 全局状态 ── */
 int16 proto_ball_x      = 0;
 int16 proto_ball_valid  = 0;
+volatile uint16 proto_ball_frame_id = 0;
 
 /* ── 调试：原始字节环形缓冲（测试 P5.0 是否收到 OpenART 消息） ── */
 #define RX_MON_SIZE   64
@@ -36,26 +37,28 @@ static void parse_line(const char *line)
     /* 格式: B,<cx> */
     if (line[0] == 'B' || line[0] == 'b')
     {
-        int16 val = 0;
-        uint8 neg = 0;
+        int32 val = 0;
+        uint8 has_digit = 0;
         uint8 i = 2;  /* 跳过 "B," */
 
         if (line[1] != ',') return;  /* 格式错误 */
 
-        if (line[i] == '-') { neg = 1; i++; }
-
         while (line[i] >= '0' && line[i] <= '9')
         {
-            val = (int16)(val * 10 + (line[i] - '0'));
+            has_digit = 1;
+            val = val * 10 + (line[i] - '0');
             i++;
         }
+        if (!has_digit || line[i] != '\0' || val > 319) return;
 
-        proto_ball_x      = neg ? (int16)(-val) : val;
+        proto_ball_x      = (int16)val;
         proto_ball_valid  = 1;
+        proto_ball_frame_id++;
     }
     else if (line[0] == 'N' || line[0] == 'n')
     {
         proto_ball_valid = 0;
+        proto_ball_frame_id++;
     }
     /* 其他：忽略（可能是噪声或未来扩展） */
 }
@@ -113,6 +116,7 @@ void Protocol_Init(void)
 
     proto_ball_x     = 0;
     proto_ball_valid = 0;
+    proto_ball_frame_id = 0;
 
     /* 初始化 UART3: P5.0=RX, P5.1=TX, 115200bps（不使能接收，由 Protocol_Start 控制） */
     uart_init(UART_3, 115200, UART3_TX_P51, UART3_RX_P50);
@@ -155,13 +159,12 @@ uint8 Protocol_DebugGet(uint8 *out, uint8 max)
     return n;
 }
 
-/** 读取最新球位置并清空标志位（防止读到重复数据） */
+/** 快照当前球位置；有效状态由接收中断持续维护，不在读取时消费。 */
 uint8 Protocol_ReadBall(int16 *x)
 {
     if (proto_ball_valid)
     {
         if (x) *x = proto_ball_x;
-        proto_ball_valid = 0;   /* 消费后清零，避免下次读到相同数据 */
         return 1;
     }
     return 0;

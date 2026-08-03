@@ -57,7 +57,7 @@ static int line_drive_run(uint8 enable_ball, int16 ball_target)
     uint8  display_cd = 0;
     uint8  stop_cd = 0;             /* 停车线连续确认计数 */
     uint8  stop_done = 0;           /* 停车完成标志 */
-    uint32 start_tick, last_imu_tick, elapsed_ms;
+    uint32 start_tick, last_imu_tick, last_ball_tick, elapsed_ms;
     uint16 sec, tenth, imu_dt;
     int    result = TASK_RESULT_OK;
 
@@ -75,7 +75,7 @@ static int line_drive_run(uint8 enable_ball, int16 ball_target)
         WcTFT_PrintCenter(0, (enable_ball ? (ball_target ? "TASK 6" : "TASK 5") : "TASK 2"));
     }
 
-    EA = 0; start_tick = pit_tick; last_imu_tick = pit_tick; EA = 1;
+    EA = 0; start_tick = pit_tick; last_imu_tick = pit_tick; last_ball_tick = pit_tick; EA = 1;
 
     while (1)
     {
@@ -110,7 +110,16 @@ static int line_drive_run(uint8 enable_ball, int16 ball_target)
         /* 巡线 + 可选球稳 */
         err = calc_error(s);
         line_ctrl_set(err, base_speed);
-        if (enable_ball) ball_ctrl_tick();
+        if (enable_ball)
+        {
+            uint32 now_tick;
+            EA = 0; now_tick = pit_tick; EA = 1;
+            if ((now_tick - last_ball_tick) >= 2)
+            {
+                last_ball_tick = now_tick;
+                ball_ctrl_tick();
+            }
+        }
 
         if (!task_fast_line)   /* 调试模式：每 100ms 显示 + USB 串口帧 */
         {
@@ -149,6 +158,7 @@ static int line_drive_run(uint8 enable_ball, int16 ball_target)
                         n += zf_sprintf((int8 *)(dbg + n), "TGT=%d ", (int32)ball_pid.Target);
                         n += zf_sprintf((int8 *)(dbg + n), "PX=%d ", (int32)proto_ball_x);
                         n += zf_sprintf((int8 *)(dbg + n), "V=%d ", (int32)proto_ball_valid);
+                        n += zf_sprintf((int8 *)(dbg + n), "BF=%d ", (int32)ball_feedback_fresh);
                         n += zf_sprintf((int8 *)(dbg + n), "SD=%d\n", (int32)ball_duty_out);
                     }
                     else
@@ -215,31 +225,39 @@ static int task3_run(void)
                 break;
 
             case S3_TO_POS:                        /* 球 → +5cm，±1cm 稳定后切 -5cm */
-                if (ball_cm_x10 >= 40 && ball_cm_x10 <= 60)
+                if (!ball_feedback_fresh)
                 {
-                    if (++settle_cnt >= 10)        /* 持续 100ms */
+                    settle_cnt = 0;
+                }
+                else if (ball_feedback_updated && ball_cm_x10 >= 40 && ball_cm_x10 <= 60)
+                {
+                    if (++settle_cnt >= 3)         /* 连续 3 个视觉帧，约 100~150ms */
                     {
                         ball_ctrl_set_target(-50);
                         settle_cnt = 0;
                         ph = S3_TO_NEG;
                     }
                 }
-                else
+                else if (ball_feedback_updated)
                 {
                     settle_cnt = 0;
                 }
                 break;
 
             case S3_TO_NEG:                        /* 球 → -5cm，稳定即成功 */
-                if (ball_cm_x10 <= -40 && ball_cm_x10 >= -60)
+                if (!ball_feedback_fresh)
                 {
-                    if (++settle_cnt >= 10)
+                    settle_cnt = 0;
+                }
+                else if (ball_feedback_updated && ball_cm_x10 <= -40 && ball_cm_x10 >= -60)
+                {
+                    if (++settle_cnt >= 3)
                     {
                         ball_ctrl_stop();
                         return TASK_RESULT_OK;
                     }
                 }
-                else
+                else if (ball_feedback_updated)
                 {
                     settle_cnt = 0;
                 }
@@ -281,6 +299,7 @@ static int task3_run(void)
                 n += zf_sprintf((int8 *)(dbg + n), "TGT=%d ", (int32)ball_pid.Target);
                 n += zf_sprintf((int8 *)(dbg + n), "PX=%d ", (int32)proto_ball_x);
                 n += zf_sprintf((int8 *)(dbg + n), "V=%d ", (int32)proto_ball_valid);
+                n += zf_sprintf((int8 *)(dbg + n), "BF=%d ", (int32)ball_feedback_fresh);
                 n += zf_sprintf((int8 *)(dbg + n), "SD=%d\n", (int32)ball_duty_out);
                 usb_cdc_write_buffer((const uint8 *)dbg, (uint16)n);
             }
