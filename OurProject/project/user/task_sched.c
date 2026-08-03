@@ -70,7 +70,7 @@ static int line_drive_run(uint8 enable_ball, int16 ball_target)
         line_ctrl_set(err, base_speed);
         if (enable_ball) ball_ctrl_tick();
 
-        system_delay_ms(10);
+        /* line-v2 调参：无 delay 高速巡线（实测直线更稳） */
         if (++display_cd >= 10)              /* 每 100ms 刷新显示 */
         {
             display_cd = 0;

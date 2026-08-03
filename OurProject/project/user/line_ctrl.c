@@ -45,7 +45,7 @@ void line_ctrl_init(void)
 
 void line_ctrl_set(int error, int base_speed)
 {
-    int16 left_duty, right_duty, spd;
+    int16 left_duty, right_duty, rev_limit, spd;
     int32 eff_out;
     int   abs_err = (error < 0) ? -error : error;
 
@@ -77,16 +77,19 @@ void line_ctrl_set(int error, int base_speed)
     if (eff_out - steer_last_out < -STEER_RAMP) eff_out = steer_last_out - STEER_RAMP;
     steer_last_out = eff_out;
 
-    /* 单轮差速：左轮固定 spd，右轮随 eff_out 变化
-     *   方向验证：eff_out>0 → right 增 → 右轮快 → 左慢右快 → 左转 ✓（与双轮一致）
-     *   eff_out<0 → right 减 → 右轮慢 → 左快右慢 → 右转 ✓
-     *   直线更顺：eff_out 小幅波动时只有右轮响应，左轮恒定 */
-    left_duty  = (int16)spd;
+    /* 双轮差速：left=spd-eff_out, right=spd+eff_out（一加一减）
+     *   方向验证：eff_out>0 → left 减 right 增 → 左慢右快 → 左转 ✓
+     *   eff_out<0 → left 增 right 减 → 左快右慢 → 右转 ✓
+     *   （从单轮差速改回双轮，转向效率更高，弯道更跟手） */
+    left_duty  = (int16)(spd - eff_out);
     right_duty = (int16)(spd + eff_out);
 
-    /* 钳位：右轮上限 spd*2（允许外轮加速转向），下限 spd/3 */
-    if (right_duty > (int32)spd * 2) right_duty = (int16)((int32)spd * 2);
-    if (right_duty < spd / 3) right_duty = (int16)(spd / 3);
+    /* 钳位：上限 spd，下限 -spd/3（允许内侧轮反转，改善急弯） */
+    rev_limit = (int16)(-(spd / 3));
+    if (left_duty  > spd) left_duty  = (int16)spd;
+    if (right_duty > spd) right_duty = (int16)spd;
+    if (left_duty  < rev_limit) left_duty  = rev_limit;
+    if (right_duty < rev_limit) right_duty = rev_limit;
 
     /* 记录实际输出 duty（诊断显示）。
      * ⚠️ 电机左右（SPIN 实测重新推导）：
