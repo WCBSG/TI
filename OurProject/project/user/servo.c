@@ -6,7 +6,7 @@
 #include "protocol.h"   /* 读取 proto_ball_x / proto_ball_valid */
 
 /* ── 标定参数（本车实测，菜单可调） ── */
-int16 servo_center_duty = 4500;   /* 摆杆水平 */
+int16 servo_center_duty = 4260;   /* 摆杆水平 */
 int16 pixel_zero        = 175;    /* O 点像素 X */
 int16 px_per_cm         = 11;     /* 每 cm 像素数 */
 int16 ball_target_cm_x10 = 0;
@@ -26,6 +26,22 @@ static float  error_sum     = 0.0f;
 static float  filtered_diff = 0.0f;
 static int16  last_target   = 175;
 static uint16 last_duty     = 4500;
+
+/* 当前生效 PID 参数（默认/任务3 可切换） */
+static float  cur_kp = SERVO_KP;
+static float  cur_ki = SERVO_KI;
+static float  cur_kd = SERVO_KD;
+static float  cur_kf = SERVO_KF;
+
+void Servo_SetDefaultParams(void)
+{
+    cur_kp = SERVO_KP; cur_ki = SERVO_KI; cur_kd = SERVO_KD; cur_kf = SERVO_KF;
+}
+
+void Servo_SetTask3Params(void)
+{
+    cur_kp = SERVO_T3_KP; cur_ki = SERVO_T3_KI; cur_kd = SERVO_T3_KD; cur_kf = SERVO_T3_KF;
+}
 
 /* ── 舵机 PWM 初始化 ── */
 void Servo_Init(void)
@@ -67,6 +83,7 @@ void Servo_Control_Init(void)   /* 回中 + PID 复位 + 禁用控制 + 关 UART
     filtered_diff   = 0.0f;
     last_target     = pixel_zero;
     last_duty       = (uint16)servo_center_duty;
+    Servo_SetDefaultParams();   /* 恢复默认参数（任务3 特调结束后回归） */
     Servo_PWM_Set((uint16)servo_center_duty);
     Protocol_Stop();
 }
@@ -109,14 +126,14 @@ uint16 Servo_Control_Update(int16 cx)
         error_sum = 0.0f;
     }
 
-    control = SERVO_KP * error
-            + SERVO_KI * error_sum
-            + SERVO_KD * filtered_diff;
+    control = cur_kp * error
+            + cur_ki * error_sum
+            + cur_kd * filtered_diff;
 
     /* 前馈：静摩擦补偿，误差大时额外推一把 */
     if (abs_error > SERVO_FF_DEADZONE)
     {
-        control += (error > 0) ? SERVO_KF : -SERVO_KF;
+        control += (error > 0) ? cur_kf : -cur_kf;
     }
 
 #if SERVO_INVERT

@@ -3,10 +3,11 @@
  *   停车线检测（任务2/5/6 共用）：起步忽略 1s → 连续 3 帧确认
  *   任务 2 立即停；任务 5/6 缓停（球稳保持，电机 500ms 线性减速）
  * 任务 3：球 O→+5cm→-5cm（像素域状态机，稳定 |球位-目标|<12px 持续 200ms）
- * 脱轨（红外全 0）→ FAIL；运行时零刷屏，结束结果页显示耗时 */
+ * 运行时零刷屏 + 1Hz 时钟，结束结果页显示耗时 */
 #include "task_sched.h"
 #include "line_ctrl.h"
 #include "servo.h"
+#include "imu_ctrl.h"   /* 任务 2 停车辅助：yaw 确认走完一圈 */
 #include "protocol.h"   /* proto_ball_x / proto_ball_valid（任务3 稳定判定） */
 #include "IRPHOTO.h"
 #include "Motor.h"
@@ -21,7 +22,6 @@ static uint32 last_elapsed_ms = 0;
 #define T3_STABLE_ERR     12     /* 任务3 稳定判定：误差（像素） */
 #define T3_STABLE_MS      200    /* 任务3 稳定判定：持续（ms） */
 #define STOP_SLOW_MS      500    /* 任务5/6 缓停时长（ms） */
-#define OFFT_TRACK_FRAMES 5      /* 脱轨（红外全0）连续帧数 */
 
 /* 球目标 cm(0.1cm) → 像素：offset = cm * px_per_cm / 10 */
 static void ball_set_cm(int16 cm_x10)
@@ -47,41 +47,48 @@ static int line_drive_run(uint8 enable_ball, int16 ball_target)
 {
     int s[8];
     uint8  stop_cd = 0, stop_done = 0;
-    uint8  offt_cd = 0;
-    uint32 start_tick, elapsed_ms;
+    uint32 start_tick, last_imu_tick, elapsed_ms;
+    uint32 last_sec = 0xFFFFFFFF;   /* 上次显示的秒（初始非法值强制首帧刷新） */
     int    result = TASK_RESULT_OK;
     const uint32 line_timeout_ms = (current_task == TASK_2) ? 20000UL : 30000UL;
 
     motor1_control(0);
     motor2_control(0);
     if (enable_ball) { Servo_Enable(); ball_set_cm(ball_target); }
+    else Servo_Control_Init();   /* 任务 2：失能 + 回中 + 关 UART3 接收 */
 
     WcTFT_Clear(RGB565_BLACK);
     WcTFT_SetColor(RGB565_WHITE, RGB565_BLACK);
     WcTFT_PrintCenter(0, (enable_ball ? (ball_target ? "TASK 6" : "TASK 5") : "TASK 2"));
 
-    EA = 0; start_tick = pit_tick; EA = 1;
+    EA = 0; start_tick = pit_tick; last_imu_tick = pit_tick; EA = 1;
 
     while (1)
     {
-        uint8 is_st, all_off;
-        uint8 i;
+        uint8 is_st;
         int   err;
 
         IRPHOTO_Read(s);
 
-        /* 脱轨保护：红外全 0（冲出赛道/传感器失效）连续 N 帧 → FAIL */
-        all_off = 1;
-        for (i = 0; i < 8; i++) if (s[i]) { all_off = 0; break; }
-        if (all_off) { if (++offt_cd >= OFFT_TRACK_FRAMES) { result = TASK_RESULT_FAIL; break; } }
-        else offt_cd = 0;
+        /* 任务 2：陀螺仪采样积分（每 5ms），停车用 yaw 确认走完一圈 */
+        if (!enable_ball && imu_active)
+        {
+            uint32 now;
+            EA = 0; now = pit_tick; EA = 1;
+            if ((now - last_imu_tick) >= 1)
+            {
+                imu_ctrl_tick((uint16)((now - last_imu_tick) * 5));
+                last_imu_tick = now;
+            }
+        }
 
-        /* 停车线检测（任务 2/5/6 共用）：起步忽略 1s → 连续 3 帧确认 */
+        /* 停车线检测（任务 2/5/6 共用）：起步忽略 1s → 连续 3 帧确认
+         * 任务 2 需 yaw 累计 ≥300°（走完一圈，防弯道误停）；任务 5/6 纯红外（陀螺仪已停） */
         is_st = line_is_stop(s);
         EA = 0; elapsed_ms = (pit_tick - start_tick) * 5; EA = 1;
 
         if (elapsed_ms < 1000) stop_cd = 0;
-        else if (is_st)
+        else if (is_st && (!imu_active || (imu_yaw_x100 < 0 ? -imu_yaw_x100 : imu_yaw_x100) >= YAW_LAP_MIN * 100))
         {
             if (++stop_cd >= 3)
             {
@@ -115,6 +122,17 @@ static int line_drive_run(uint8 enable_ball, int16 ball_target)
         if (stop_done) break;
 
         EA = 0; elapsed_ms = (pit_tick - start_tick) * 5; EA = 1;
+
+        /* 简易时钟：整秒变化才刷新（1Hz，省算力） */
+        if (elapsed_ms / 1000 != last_sec)
+        {
+            last_sec = elapsed_ms / 1000;
+            WcTFT_PrintAt(0, 32, "                ");
+            WcTFT_PrintAt(0, 32, "T:");
+            WcTFT_PrintIntAt(24, 32, (int32)last_sec);
+            WcTFT_PrintAt(48, 32, "s");
+        }
+
         if (elapsed_ms > line_timeout_ms) { result = TASK_RESULT_TIMEOUT; break; }
     }
 
@@ -131,10 +149,12 @@ static int line_drive_run(uint8 enable_ball, int16 ball_target)
 static int task3_run(void)
 {
     uint32 start_tick, elapsed_ms;
+    uint32 last_sec = 0xFFFFFFFF;
     uint8  ph = 0;              /* 0=O, 1=+5cm, 2=-5cm, 3=完成 */
     uint32 stable_since = 0;
     int16  tgt;
 
+    Servo_SetTask3Params();   /* 任务 3 特调参数（与归中/任务5/6 分开，现场调宏） */
     Servo_Enable();
     ball_set_cm(0);
 
@@ -164,7 +184,7 @@ static int task3_run(void)
         }
         else
         {
-            Servo_Control_Init();   /* 回中 + 复位 + 禁用 */
+            /* 保持 -5cm 不回中：结果页期间球停在任务位置，退出结果页后才回中（避免扯皮） */
             EA = 0; elapsed_ms = (pit_tick - start_tick) * 5; EA = 1;
             last_elapsed_ms = elapsed_ms;
             return TASK_RESULT_OK;
@@ -173,11 +193,21 @@ static int task3_run(void)
         system_delay_ms(10);
 
         EA = 0; elapsed_ms = (pit_tick - start_tick) * 5; EA = 1;
+
+        /* 简易时钟：整秒变化才刷新（1Hz，省算力） */
+        if (elapsed_ms / 1000 != last_sec)
+        {
+            last_sec = elapsed_ms / 1000;
+            WcTFT_PrintAt(0, 32, "                ");
+            WcTFT_PrintAt(0, 32, "T:");
+            WcTFT_PrintIntAt(24, 32, (int32)last_sec);
+            WcTFT_PrintAt(48, 32, "s");
+        }
+
         if (elapsed_ms > 5000)      /* 赛题任务3 限 5s */
         {
-            Servo_Control_Init();
             last_elapsed_ms = elapsed_ms;
-            return TASK_RESULT_TIMEOUT;
+            return TASK_RESULT_TIMEOUT;   /* 同样保持球位，退出结果页统一回中 */
         }
     }
 }
@@ -242,6 +272,8 @@ void task_sched_run(void)
     if (current_task == TASK_2) { line_ctrl_apply_t2(); base_speed = base_speed_t2; }
     else { line_ctrl_apply_other(); base_speed = base_speed_ot; }
 
+    if (current_task != TASK_2) imu_ctrl_stop();   /* 非任务 2 停陀螺仪省算力 */
+
     switch (current_task)
     {
         case TASK_2: result = line_drive_run(0, 0);                   break;
@@ -252,5 +284,9 @@ void task_sched_run(void)
     }
 
     last_result = result;
+    Servo_Enable();           /* 任务结束恢复常开（任务 2 运行中已关闭，其他任务回中后恢复控球） */
     task_sched_show_result(result);
+
+    /* 任务 3：结果页保持球位（-5cm）避免扯皮，退出结果页才回中 */
+    if (current_task == TASK_3) Servo_Control_Init();
 }

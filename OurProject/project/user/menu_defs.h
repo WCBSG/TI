@@ -17,7 +17,7 @@
 
 extern MenuPage page_main;        /* 主菜单页 */
 extern MenuPage page_launch;      /* Launch 确认页 */
-extern MenuPage page_ballpid;     /* Ball Cal 标定页（main 检测使能 servo） */
+extern MenuPage page_ballpid;     /* Ball Cal 标定页（main BallPx 刷新检测） */
 extern int16   ball_px_display;   /* BallPx 显示副本（main 每 100ms 刷新） */
 extern uint8   launch_triggered;  /* cb_launch 回调置位 → main 退出菜单循环 */
 extern int16   base_speed;        /* 当前激活基准 duty（任务启动时应用） */

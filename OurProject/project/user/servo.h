@@ -36,6 +36,14 @@ extern int16 ball_target_cm_x10; /* 任务6 球目标位置（0.1cm，相对 O�
 #define SERVO_I_DEADZONE 50      /* 积分累积死区：|error|<该值才积分 */
 #define SERVO_FF_DEADZONE 8      /* 前馈死区：|error|>该值才加前馈 */
 
+/* ── 任务 3 特调参数（与归中/任务5/6 分开，现场调宏） ──
+ * 任务 3 限 5s：O→+5→-5 快速到位，可能需要更强 Kp/前馈（推得更猛）
+ * 初值=默认，真机实测后单独调整 */
+#define SERVO_T3_KP  10.0f
+#define SERVO_T3_KI  0.1f
+#define SERVO_T3_KD  600.0f
+#define SERVO_T3_KF  20.0f
+
 /* ════════════════════════════════════════════════════════════
  * 5ms 周期控制（PIT 中断驱动舵机追踪）
  * ════════════════════════════════════════════════════════════ */
@@ -56,6 +64,8 @@ void   Servo_Init(void);                       /* 舵机 PWM 初始化 */
 void   Servo_PWM_Set(uint16 pwm_value);        /* 直接设置占空比（带钳位） */
 void   Servo_Enable(void);                     /* 使能控制 + Protocol_Start（任务3/5/6 + BallCal 用） */
 void   Servo_Control_Init(void);               /* 回中 + PID 复位 + 禁用 + Protocol_Stop */
+void   Servo_SetDefaultParams(void);           /* 默认参数（归中/任务5/6） */
+void   Servo_SetTask3Params(void);             /* 任务 3 特调参数 */
 uint16 Servo_Control_Update(int16 cx);         /* 球像素 X → PID+前馈 → 舵机，返回 duty */
 void   Servo_Timer_Init(void);                 /* 初始化 5ms PIT，中断里执行 PID 追踪 */
 void   Servo_Timer_Callback(void);             /* 5ms 中断回调（pit 自动调用） */

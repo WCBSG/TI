@@ -11,6 +11,7 @@
 #include "protocol.h"
 #include "task_sched.h"
 #include "servo.h"
+#include "imu_ctrl.h"
 
 void main(void)
 {
@@ -26,7 +27,8 @@ void main(void)
 
     line_ctrl_init();
     Servo_Init();
-    Servo_Control_Init();
+    Servo_Control_Init();     /* 回中 + 复位 */
+    Servo_Enable();           /* 常开：菜单/任务3/5/6 均控球，仅任务 2 运行中关闭省算力 */
     Servo_Timer_Init();       /* 5ms 中断：像素域 PID+前馈 控舵机（TIM0） */
     /* base_speed 由 task_sched_run 按任务应用（base_speed_t2 / base_speed_ot） */
 
@@ -56,9 +58,9 @@ void main(void)
                     else                        Menu_Cancel();             /* 子页 → 回上层 */
                 }
 
-                /* BallCal 页使能 servo（标定球位稳定，含 Protocol_Start），离开禁用回中 */
-                if (Menu_IsTop(&page_ballpid)) Servo_Enable();
-                else if (servo_enable) Servo_Control_Init();
+                /* Launch 页初始化陀螺仪（任务 2 停车辅助），其他页停止省算力 */
+                if (Menu_IsTop(&page_launch)) { if (!imu_active) imu_ctrl_start(); }
+                else if (imu_active) imu_ctrl_stop();
 
                 /* 仅 BallCal 页每 100ms 局部刷新值列（BallPx 实时球位），其他页不刷新 */
                 if (++refresh_cd >= 10)
