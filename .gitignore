@@ -5,6 +5,8 @@ __pycache__/
 .DS_Store
 Thumbs.db
 /OurProject/project/stcisp_log/
+/E09_timer_demo/
+/stc-ti/
 
 # IDE / Editor
 *.uvgui.*

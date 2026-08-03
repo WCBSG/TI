@@ -950,16 +950,6 @@
               <FilePath>..\user\cmd_ctrl.h</FilePath>
             </File>
             <File>
-              <FileName>mileage.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\user\mileage.c</FilePath>
-            </File>
-            <File>
-              <FileName>mileage.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\user\mileage.h</FilePath>
-            </File>
-            <File>
               <FileName>task_sched.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\user\task_sched.c</FilePath>

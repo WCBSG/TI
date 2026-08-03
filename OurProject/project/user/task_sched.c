@@ -118,7 +118,7 @@ static int line_drive_run(uint8 enable_ball, int16 ball_target)
                 n += zf_sprintf((int8 *)(dbg + n), "IR=%s ", ir_bits);
                 n += zf_sprintf((int8 *)(dbg + n), "D1=%d ", (int32)line_duty_lr);
                 n += zf_sprintf((int8 *)(dbg + n), "D2=%d ", (int32)line_duty_rr);
-                n += zf_sprintf((int8 *)(dbg + n), "SO=%d ", (int32)steer_pid.Out);
+                n += zf_sprintf((int8 *)(dbg + n), "SO=%d ", (int32)line_turn);
                 n += zf_sprintf((int8 *)(dbg + n), "E1=%d ", (int32)motor_get_encoder_lr());
                 n += zf_sprintf((int8 *)(dbg + n), "E2=%d ", (int32)motor_get_encoder_rr());
                 n += zf_sprintf((int8 *)(dbg + n), "BASE=%d ", (int32)base_speed);

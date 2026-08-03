@@ -34,15 +34,15 @@ void ball_ctrl_init(void)
 
     if (config_valid())
     {
-        ball_pid.Kp         = flash_buff[12];
-        ball_pid.Ki         = flash_buff[13];
-        ball_pid.Kd         = flash_buff[14];
-        ball_pid.OutMax     = flash_buff[15];
-        ball_pid.OutMin     = flash_buff[16];
-        servo_center_duty   = flash_buff[17];
-        pixel_zero          = flash_buff[18];
-        px_per_cm           = flash_buff[19];
-        ball_target_cm_x10  = flash_buff[20];
+        ball_pid.Kp         = flash_buff[2];
+        ball_pid.Ki         = flash_buff[3];
+        ball_pid.Kd         = flash_buff[4];
+        ball_pid.OutMax     = flash_buff[5];
+        ball_pid.OutMin     = flash_buff[6];
+        servo_center_duty   = flash_buff[7];
+        pixel_zero          = flash_buff[8];
+        px_per_cm           = flash_buff[9];
+        ball_target_cm_x10  = flash_buff[10];
     }
 }
 

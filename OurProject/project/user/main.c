@@ -20,7 +20,6 @@
 #include "ball_ctrl.h"
 #include "imu_ctrl.h"
 #include "cmd_ctrl.h"    /* USB-CDC 命令触发测试 */
-#include "mileage.h"     /* 里程/弯道过弯参数 */
 
 /* ── LED 灯带 PWM（PA2 = PWME_CH2，300Hz 与舵机同 PWME 组同频） ── */
 #define LED_PWM_PIN    (IO_PA2)
@@ -99,9 +98,8 @@ void main(void)
     config_load();
     line_ctrl_init();
     ball_ctrl_init();
-    mileage_load();              /* 里程/弯道过弯参数（config_load 之后） */
     if (config_valid())
-        base_speed = flash_buff[5];   /* 恢复持久化的基准 duty */
+        base_speed = flash_buff[1];   /* 恢复持久化的基准 duty */
 
     imu_ctrl_init();   /* 陀螺仪：硬件 SPI3 + 静止 1s 零点标定（失败不阻塞） */
 
@@ -115,6 +113,9 @@ void main(void)
     /* ── 启动主菜单 ── */
     Menu_Init();
     Menu_Push(&page_main);
+
+    /* 版本识别码（测试用） */
+    WcTFT_PrintAt(96, 0, "V5");
 
     /* ── 三态主循环：菜单 ⇄ 任务 ⇄ 结果 ── */
     launch_triggered = 0;
