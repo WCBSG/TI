@@ -23,7 +23,9 @@ static char  cmd_buf[CMD_BUF_MAX];
 static uint8 cmd_idx;
 static volatile uint8 cmd_ready;
 
-volatile uint8 ir_test_cmd = 0;
+volatile uint8 ir_test_cmd  = 0;
+volatile uint8 proto_test_cmd = 0;   /* PROTO 协议测试标志（main 菜单循环消费） */
+volatile uint8 utest_cmd    = 0;   /* UTEST 回环测试标志（P5.1→P5.0 短接自测） */
 
 /* ── 大小写不敏感比较（C251 C89 无 stricmp，手写；A-Z 转小写） ── */
 static uint8 cmd_eq(const char *a, const char *b)
@@ -112,12 +114,14 @@ void cmd_poll(void)
     else if (cmd_eq(cmd_buf, "T5")) { task_sched_set(TASK_5);  launch_triggered = 1; }
     else if (cmd_eq(cmd_buf, "T6")) { task_sched_set(TASK_6);  launch_triggered = 1; }
     else if (cmd_eq(cmd_buf, "IR")) { ir_test_cmd = 1; }
-    else if (cmd_eq(cmd_buf, "STOP")) { ir_test_cmd = 0; }      /* 停止光电测试 */
+    else if (cmd_eq(cmd_buf, "PROTO")) { proto_test_cmd = 1; }
+    else if (cmd_eq(cmd_buf, "UTEST")) { utest_cmd = 1; }
+    else if (cmd_eq(cmd_buf, "STOP")) { ir_test_cmd = 0; proto_test_cmd = 0; utest_cmd = 0; }   /* 停止测试 */
     else if (cmd_eq(cmd_buf, "SPIN")) { cmd_spin('L'); }
     else if (cmd_eq(cmd_buf, "SPIN L")) { cmd_spin('L'); }
     else if (cmd_eq(cmd_buf, "SPIN R")) { cmd_spin('R'); }
     else if (cmd_eq(cmd_buf, "HELP"))
     {
-        usb_cdc_write_string("T2/T3/T5/T6/IR/SPIN[L/R]/STOP/HELP\n");
+        usb_cdc_write_string("T2/T3/T5/T6/IR/PROTO/UTEST/SPIN[L/R]/STOP/HELP\n");
     }
 }

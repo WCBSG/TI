@@ -32,6 +32,8 @@ extern int16 proto_ball_valid;   /* 1=有有效球数据，0=未检测到（int1
 
 /* ── 初始化和控制 ── */
 void Protocol_Init(void);        /* 初始化 UART3 + DMA 接收 */
+uint8 Protocol_DebugGet(uint8 *out, uint8 max); /* 调试：读出积压的原始接收字节（消费） */
+void Protocol_SendLoopback(void);    /* 回环测试：UART3 TX 发 "LOOP\n"（UTEST 用） */
 void Protocol_SendStart(void);   /* 发送 START 命令给 OpenART */
 void Protocol_SendStop(void);    /* 发送 STOP 命令 */
 void Protocol_SendCal(void);     /* 发送 CAL 命令 */

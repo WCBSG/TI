@@ -80,6 +80,155 @@ static void ir_test_run(void)
 }
 
 
+/* ═══════════════════════════════════════════════════════════
+ * UART3 协议测试（PROTO 命令触发）：验证 P5.0 能否收到 OpenART 摄像头消息
+ *   把 P5.0 收到的原始字节转发到 USB-CDC（hex+ASCII），每 100ms 一行状态
+ *   上位机看到字节流 = P5.0 收通；PX/V 显示解析出的球坐标
+ * 退出：收到 STOP 命令 / 按任意键
+ * ════════════════════════════════════════════════════════════ */
+static void proto_test_run(void)
+{
+    uint8  raw[16], i, n;
+    uint32 n_byte = 0;
+    uint8  dbg_cd = 0;
+    char   buf[96];
+    uint32 nb;
+
+    WcTFT_Clear(RGB565_BLACK);
+    WcTFT_SetColor(RGB565_WHITE, RGB565_BLACK);
+    WcTFT_PrintCenter(0, "UART3 TEST");
+    WcTFT_PrintCenter(3, "STOP: exit");
+
+    usb_cdc_write_string("[PROTO] listening P5.0 (UART3 RX)...\n");
+
+    while (1)
+    {
+        n = Protocol_DebugGet(raw, sizeof(raw));
+        if (n)
+        {
+            for (i = 0; i < n; i++)
+            {
+                nb = 0;
+                nb += zf_sprintf((int8 *)(buf + nb), "%X%c ",
+                                 (int32)raw[i],
+                                 (raw[i] >= 0x20 && raw[i] < 0x7F) ? (char)raw[i] : '.');
+                usb_cdc_write_buffer((const uint8 *)buf, (uint16)nb);
+                n_byte++;
+            }
+        }
+
+        if (++dbg_cd >= 10)              /* 每 100ms 状态行 */
+        {
+            dbg_cd = 0;
+            nb = 0;
+            nb += zf_sprintf((int8 *)(buf + nb), "[%d] PX=%d V=%d\n",
+                             (int32)n_byte, (int32)proto_ball_x, (int32)proto_ball_valid);
+            usb_cdc_write_buffer((const uint8 *)buf, (uint16)nb);
+
+            WcTFT_PrintAt(0, 32, "Px:");
+            WcTFT_PrintIntAt(24, 32, (int32)proto_ball_x);
+            WcTFT_PrintAt(0, 48, "V:");
+            WcTFT_PrintIntAt(24, 48, (int32)proto_ball_valid);
+            WcTFT_PrintAt(0, 64, "Rx:");
+            WcTFT_PrintIntAt(24, 64, (int32)n_byte);
+        }
+
+        cmd_poll();                      /* 处理协议测试期间的命令（STOP 等） */
+        if (!proto_test_cmd) break;
+        button_control(0);
+        if (key1_flag || key2_flag || key3_flag || key4_flag)
+        {
+            key1_flag = key2_flag = key3_flag = key4_flag = 0;
+            proto_test_cmd = 0;
+            break;
+        }
+
+        system_delay_ms(10);
+    }
+
+    usb_cdc_write_string("[PROTO] stopped\n");
+}
+
+
+/* ═══════════════════════════════════════════════════════════
+ * UART3 回环自测（UTEST 命令触发）：验证 STC32 UART3 收发链路
+ *   用法：把 OpenART TX 线从 P5.0 拔掉，用杜邦线短接 P5.1→P5.0
+ *   然后发 UTEST：STC32 每 500ms 从 P5.1 自发 "LOOP\n"，
+ *   若 P5.0 收到（USB-CDC 看到 4C4F4F50 4C L O O P 字节）→ STC32 收发正常
+ *   收不到 → STC32 UART3 配置/引脚问题
+ * 退出：收到 STOP 命令 / 按任意键
+ * ════════════════════════════════════════════════════════════ */
+static void utest_run(void)
+{
+    uint8  raw[16], i, n;
+    uint32 t_last, send_cnt = 0;
+    uint8  dbg_cd = 0;
+    char   buf[160];
+    uint32 nb;
+
+    WcTFT_Clear(RGB565_BLACK);
+    WcTFT_SetColor(RGB565_WHITE, RGB565_BLACK);
+    WcTFT_PrintCenter(0, "UART LOOP");
+    WcTFT_PrintCenter(3, "STOP: exit");
+
+    /* 诊断：UART3/DMA 寄存器初始状态 */
+    nb = 0;
+    nb += zf_sprintf((int8 *)(buf + nb), "[D] RCFG=%X RCR=%X RSTA=%X TCFG=%X TSTA=%X\n",
+                     (int32)DMA_UR3R_CFG, (int32)DMA_UR3R_CR, (int32)DMA_UR3R_STA,
+                     (int32)DMA_UR3T_CFG, (int32)DMA_UR3T_STA);
+    nb += zf_sprintf((int8 *)(buf + nb), "[D] S3CON=%X P_SW2=%X TICK=%d\n",
+                     (int32)S3CON, (int32)P_SW2, (int32)pit_tick);
+    usb_cdc_write_buffer((const uint8 *)buf, (uint16)nb);
+
+    usb_cdc_write_string("[UTEST] short P5.1 to P5.0, sending LOOP every 500ms...\n");
+    EA = 0; t_last = pit_tick; EA = 1;
+
+    while (1)
+    {
+        n = Protocol_DebugGet(raw, sizeof(raw));
+        if (n)
+        {
+            for (i = 0; i < n; i++)
+            {
+                nb = 0;
+                nb += zf_sprintf((int8 *)(buf + nb), "%X%c ",
+                                 (int32)raw[i],
+                                 (raw[i] >= 0x20 && raw[i] < 0x7F) ? (char)raw[i] : '.');
+                usb_cdc_write_buffer((const uint8 *)buf, (uint16)nb);
+            }
+        }
+
+        EA = 0; if ((pit_tick - t_last) * 5 >= 500) { EA = 1; Protocol_SendLoopback(); t_last = pit_tick; send_cnt++; }
+        else EA = 1;
+
+        if (++dbg_cd >= 10)              /* 每 100ms 诊断心跳 */
+        {
+            dbg_cd = 0;
+            nb = 0;
+            nb += zf_sprintf((int8 *)(buf + nb), "SEND=%d TICK=%d RSTA=%X TSTA=%X P50=%d P51=%d\n",
+                             (int32)send_cnt, (int32)pit_tick,
+                             (int32)DMA_UR3R_STA, (int32)DMA_UR3T_STA,
+                             (int32)gpio_get_level(IO_P50), (int32)gpio_get_level(IO_P51));
+            usb_cdc_write_buffer((const uint8 *)buf, (uint16)nb);
+        }
+
+        cmd_poll();                      /* 处理测试期间的命令（STOP 等） */
+        if (!utest_cmd) break;
+        button_control(0);
+        if (key1_flag || key2_flag || key3_flag || key4_flag)
+        {
+            key1_flag = key2_flag = key3_flag = key4_flag = 0;
+            utest_cmd = 0;
+            break;
+        }
+
+        system_delay_ms(10);
+    }
+
+    usb_cdc_write_string("[UTEST] stopped\n");
+}
+
+
 /* ═══════════════════════════════════════════════════════════ */
 void main(void)
 {
@@ -128,11 +277,29 @@ void main(void)
 
             if (ir_test_cmd)               /* IR 命令 → 光电测试（STOP/按键退出） */
             {
-                ir_test_cmd = 0;
                 ir_test_run();
+                ir_test_cmd = 0;           /* 退出后再清，防重复进入 */
                 WcTFT_Clear(RGB565_BLACK);
                 WcTFT_SetColor(RGB565_WHITE, RGB565_BLACK);
                 Menu_Draw();               /* 测试结束后重绘菜单 */
+            }
+
+            if (proto_test_cmd)            /* PROTO 命令 → UART3 协议测试 */
+            {
+                proto_test_run();
+                proto_test_cmd = 0;        /* 退出后再清，防重复进入 */
+                WcTFT_Clear(RGB565_BLACK);
+                WcTFT_SetColor(RGB565_WHITE, RGB565_BLACK);
+                Menu_Draw();
+            }
+
+            if (utest_cmd)                 /* UTEST 命令 → UART3 回环自测 */
+            {
+                utest_run();
+                utest_cmd = 0;             /* 退出后再清，防重复进入 */
+                WcTFT_Clear(RGB565_BLACK);
+                WcTFT_SetColor(RGB565_WHITE, RGB565_BLACK);
+                Menu_Draw();
             }
 
             button_control(KEY_REPEAT_KEY1 | KEY_REPEAT_KEY2);

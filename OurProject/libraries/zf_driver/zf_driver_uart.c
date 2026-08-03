@@ -482,14 +482,16 @@ void uart_tim_init(uart_index_enum uart_n, uint32 baud, uart_pin_enum tx_pin, ua
                 T2L = brt;
                 T2H = brt >> 8;
                 AUXR |= 0x14;
+                S3CFG &= ~0x01;   /* 波特率源 = T2 */
             }
             else if(TIM_3 == tim_n)
             {
                 T3L = brt;
                 T3H = brt >> 8;
                 T4T3M |= 0x0a;
+                S3CFG |= 0x01;    /* 波特率源 = T3（逐飞库遗漏：不设则 UART3 无波特率时钟，收发全失效） */
             }
-            
+
             S3CON |= 0x50;
             P_SW2  &= ~(0x01 << 1);
             P_SWX1 &= ~(0x01 << 6);
