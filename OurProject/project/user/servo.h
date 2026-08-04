@@ -18,7 +18,7 @@
 /* ════════════════════════════════════════════════════════════
  * 标定参数（变量，菜单可调）
  * ════════════════════════════════════════════════════════════ */
-extern int16 servo_center_duty;  /* 舵机中位 duty（摆杆水平，本车实测 4500） */
+extern volatile int16 servo_center_duty;  /* 舵机中位 duty（中断读，volatile） */
 extern int16 pixel_zero;         /* O 点像素 X（本车实测 175） */
 extern int16 px_per_cm;          /* 每 cm 像素数（本车实测 11，任务6 目标换算） */
 extern int16 ball_target_px;     /* 任务6 球目标像素偏移（Launch BallTgtPx） */
@@ -82,11 +82,11 @@ extern int16 ball_target_cm_x10; /* 任务6 球目标 cm（0.1）偏移（Launch
 /* 5ms 中断累加的毫秒计数器（供任务3 稳定判定计时） */
 extern volatile uint32 g_servo_ms;
 
-/* 球目标像素 X（运行时修改：任务3/5/6 设置） */
-extern int16 g_servo_target;
+/* 球目标像素 X（运行时修改：任务3/5/6 设置；主循环写、中断读，volatile） */
+extern volatile int16 g_servo_target;
 
-/* 控制使能：任务 3/5/6 + BallCal 页 = 1，其他禁用（Servo_Control_Init 复位为 0） */
-extern uint8 servo_enable;
+/* 控制使能：任务 3/5/6 = 1，其他禁用（Servo_Control_Init 复位为 0；主循环写、中断读，volatile） */
+extern volatile uint8 servo_enable;
 
 
 /* ── 函数声明 ── */

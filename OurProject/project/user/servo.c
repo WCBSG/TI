@@ -5,18 +5,18 @@
 #include "servo.h"
 #include "protocol.h"   /* 读取 proto_ball_x / proto_ball_valid */
 
-/* ── 标定参数（本车实测，菜单可调） ── */
-int16 servo_center_duty = 4740;   /* 摆杆水平 */
+/* ── 标定参数（本车实测） ── */
+volatile int16 servo_center_duty = 4740;   /* 摆杆水平（中断读） */
 int16 pixel_zero        = 175;    /* O 点像素 X */
 int16 px_per_cm         = 11;     /* 每 cm 像素数 */
 int16 ball_target_px     = 0;     /* 像素偏移目标（任务6，Launch BallTgtPx） */
 int16 ball_target_cm_x10 = 0;
 
-/* 球目标像素 X（任务3/5/6 设置） */
-int16 g_servo_target = 175;   /* 默认 O 点（pixel_zero 初始值） */
+/* 球目标像素 X（任务3/5/6 设置；主循环写、中断读） */
+volatile int16 g_servo_target = 175;   /* 默认 O 点（pixel_zero 初始值） */
 
-/* 控制使能：任务 3/5/6 + BallCal 页 = 1，其他禁用（中断里检查，防止回中后又被 PID 覆盖） */
-uint8 servo_enable = 0;
+/* 控制使能：任务 3/5/6 = 1，其他禁用（中断里检查，防止回中后又被 PID 覆盖） */
+volatile uint8 servo_enable = 0;
 
 /* 5ms 中断累加的毫秒计数器（Servo_Timer_Callback 每 5ms 加一次，任务3 稳定判定用） */
 volatile uint32 g_servo_ms = 0;
@@ -30,12 +30,13 @@ static uint16 last_duty     = 4500;
 static int16  last_cx       = -1;     /* 上次球像素（速度前馈） */
 static float  filtered_speed = 0.0f;  /* 球速低通（速度前馈） */
 
-/* 当前生效 PID 参数（默认/任务3 可切换） */
-static float  cur_kp = SERVO_KP;
-static float  cur_ki = SERVO_KI;
-static float  cur_kd = SERVO_KD;
-static float  cur_kf = SERVO_KF;
-static float  cur_kv = SERVO_KV;
+/* 当前生效 PID 参数（默认/任务3/4/5/6 可切换）
+ * volatile：主循环写、5ms 中断读，防优化缓存旧值 */
+static volatile float cur_kp = SERVO_KP;
+static volatile float cur_ki = SERVO_KI;
+static volatile float cur_kd = SERVO_KD;
+static volatile float cur_kf = SERVO_KF;
+static volatile float cur_kv = SERVO_KV;
 
 void Servo_SetDefaultParams(void)
 {
