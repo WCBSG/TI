@@ -100,18 +100,16 @@ static int line_drive_run(uint8 enable_ball, int16 ball_target)
                 result = TASK_RESULT_OK;
                 if (enable_ball)
                 {
-                    /* 任务5/6 缓停：球稳保持（servo 中断），电机线性直走减速（不巡线，保持方向） */
+                    /* 任务5/6 缓停：球稳保持（servo 中断），电机线性减速 + 继续巡线（跟线不偏） */
                     uint32 t0, dt;
                     EA = 0; t0 = pit_tick; EA = 1;
                     while (1)
                     {
                         EA = 0; dt = (pit_tick - t0) * 5; EA = 1;
                         if (dt >= STOP_SLOW_MS) break;
-                        {
-                            int16 spd = (int16)((int32)base_speed * (STOP_SLOW_MS - (int32)dt) / STOP_SLOW_MS);
-                            motor1_control(spd);
-                            motor2_control(-spd);   /* 左右同速直走（不巡线，停车线处误差大不干扰） */
-                        }
+                        IRPHOTO_Read(s);
+                        line_ctrl_set(calc_error(s),
+                                      (int16)((int32)base_speed * (STOP_SLOW_MS - (int32)dt) / STOP_SLOW_MS));
                         system_delay_ms(10);
                     }
                 }
