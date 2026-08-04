@@ -53,8 +53,8 @@ extern int16 ball_target_cm_x10; /* 任务6 球目标位置（0.1cm，相对 O�
 
 /* ── 任务 5 参数（行驶球稳 O，现场调宏，初值=默认） ── */
 #define SERVO_T5_KP  10.0f
-#define SERVO_T5_KI  0.01f
-#define SERVO_T5_KD  600.0f
+#define SERVO_T5_KI  0.00f
+#define SERVO_T5_KD  800.0f
 #define SERVO_T5_KF  20.0f
 #define SERVO_T5_KV  400.0f
 
