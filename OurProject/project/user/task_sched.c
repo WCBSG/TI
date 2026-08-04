@@ -99,7 +99,7 @@ static int line_drive_run(uint8 enable_ball, int16 ball_target)
                 result = TASK_RESULT_OK;
                 if (enable_ball)
                 {
-                    /* 任务5/6 缓停：球稳保持（servo 中断），电机 800ms S 曲线直走减速（不巡线，保持方向） */
+                    /* 任务5/6 缓停：球稳保持（servo 中断），电机线性直走减速（不巡线，保持方向） */
                     uint32 t0, dt;
                     EA = 0; t0 = pit_tick; EA = 1;
                     while (1)
@@ -107,8 +107,7 @@ static int line_drive_run(uint8 enable_ball, int16 ball_target)
                         EA = 0; dt = (pit_tick - t0) * 5; EA = 1;
                         if (dt >= STOP_SLOW_MS) break;
                         {
-                            float k = (float)dt / (float)STOP_SLOW_MS;
-                            int16 spd = (int16)((float)base_speed * (1.0f - 3.0f*k*k + 2.0f*k*k*k));
+                            int16 spd = (int16)((int32)base_speed * (STOP_SLOW_MS - (int32)dt) / STOP_SLOW_MS);
                             motor1_control(spd);
                             motor2_control(-spd);   /* 左右同速直走（不巡线，停车线处误差大不干扰） */
                         }
@@ -141,7 +140,7 @@ static int line_drive_run(uint8 enable_ball, int16 ball_target)
         if (stop_done) break;   /* 停车确认后立即退出，不再打巡线一拍（防停前窜动） */
 
         /* 巡线（球稳由 5ms 中断驱动，主循环不调 tick）
-         * 缓启动（仅球稳任务 5/6）：起步 S 曲线加速（Smoothstep 3k²-2k³，加速度平滑无突变），防发车甩球
+         * 缓启动（仅球稳任务 5/6）：起步线性加速，防发车甩球
          * 任务 2 无球稳，直接满速起步（不缓启动） */
         err = calc_error(s);
         {
@@ -150,10 +149,7 @@ static int line_drive_run(uint8 enable_ball, int16 ball_target)
             {
                 EA = 0; elapsed_ms = (pit_tick - start_tick) * 5; EA = 1;
                 if (elapsed_ms < START_SLOW_MS)
-                {
-                    float k = (float)elapsed_ms / (float)START_SLOW_MS;
-                    spd = (int16)((float)base_speed * (3.0f*k*k - 2.0f*k*k*k));
-                }
+                    spd = (int16)((int32)base_speed * (int32)elapsed_ms / START_SLOW_MS);
             }
             line_ctrl_set(err, spd);
         }
