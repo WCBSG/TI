@@ -21,7 +21,7 @@ static uint32 last_elapsed_ms = 0;
 
 #define T3_STABLE_ERR     12     /* 任务3 稳定判定：误差（像素） */
 #define T3_STABLE_MS      200    /* 任务3 稳定判定：持续（ms） */
-#define STOP_SLOW_MS      4000    /* 任务5/6 缓停时长（ms，S 曲线） */
+#define STOP_SLOW_MS      2500    /* 任务5/6 缓停时长（ms，S 曲线） */
 #define BACKUP_MS         500    /* 任务2 停车后固定后退时长（补偿过头） */
 #define BACKUP_L          2000   /* 左轮后退 duty（慢） */
 #define BACKUP_R          2800   /* 右轮后退 duty（快，>左轮，微调方向） */
@@ -99,18 +99,18 @@ static int line_drive_run(uint8 enable_ball, int16 ball_target)
                 result = TASK_RESULT_OK;
                 if (enable_ball)
                 {
-                    /* 任务5/6 缓停：球稳保持，电机 800ms S 曲线减速（Smoothstep，加速度平滑，继续巡线保方向） */
+                    /* 任务5/6 缓停：球稳保持（servo 中断），电机 800ms S 曲线直走减速（不巡线，保持方向） */
                     uint32 t0, dt;
                     EA = 0; t0 = pit_tick; EA = 1;
                     while (1)
                     {
                         EA = 0; dt = (pit_tick - t0) * 5; EA = 1;
                         if (dt >= STOP_SLOW_MS) break;
-                        IRPHOTO_Read(s);
                         {
                             float k = (float)dt / (float)STOP_SLOW_MS;
-                            line_ctrl_set(calc_error(s),
-                                          (int16)((float)base_speed * (1.0f - 3.0f*k*k + 2.0f*k*k*k)));
+                            int16 spd = (int16)((float)base_speed * (1.0f - 3.0f*k*k + 2.0f*k*k*k));
+                            motor1_control(spd);
+                            motor2_control(-spd);   /* 左右同速直走（不巡线，停车线处误差大不干扰） */
                         }
                         system_delay_ms(10);
                     }
