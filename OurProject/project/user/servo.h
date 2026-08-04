@@ -21,7 +21,8 @@
 extern int16 servo_center_duty;  /* 舵机中位 duty（摆杆水平，本车实测 4500） */
 extern int16 pixel_zero;         /* O 点像素 X（本车实测 175） */
 extern int16 px_per_cm;          /* 每 cm 像素数（本车实测 11，任务6 目标换算） */
-extern int16 ball_target_cm_x10; /* 任务6 球目标位置（0.1cm，相对 O） */
+extern int16 ball_target_px;     /* 任务6 球目标像素偏移（Launch BallTgtPx） */
+extern int16 ball_target_cm_x10; /* 任务6 球目标 cm（0.1）偏移（Launch BallTgtCm） */
 
 /* ════════════════════════════════════════════════════════════
  * PID + 前馈参数（真机验证，宏定死；改参数需重编译）
@@ -50,6 +51,13 @@ extern int16 ball_target_cm_x10; /* 任务6 球目标位置（0.1cm，相对 O�
 #define SERVO_T3_KD  1200.0f
 #define SERVO_T3_KF  5.0f
 #define SERVO_T3_KV  0.0f     /* 任务3 静止不用速度前馈 */
+
+/* ── 任务 4 参数（A→B 球稳 O，现场调宏，初值=默认） ── */
+#define SERVO_T4_KP  10.0f
+#define SERVO_T4_KI  0.01f
+#define SERVO_T4_KD  600.0f
+#define SERVO_T4_KF  20.0f
+#define SERVO_T4_KV  400.0f
 
 /* ── 任务 5 参数（行驶球稳 O，现场调宏，初值=默认） ── */
 #define SERVO_T5_KP  10.0f
@@ -92,6 +100,7 @@ void   Servo_Enable(void);                     /* 使能控制 + Protocol_Start�
 void   Servo_Control_Init(void);               /* 回中 + PID 复位 + 禁用 + Protocol_Stop */
 void   Servo_SetDefaultParams(void);           /* 默认参数（归中） */
 void   Servo_SetTask3Params(void);             /* 任务 3 特调参数 */
+void   Servo_SetTask4Params(void);             /* 任务 4 特调参数 */
 void   Servo_SetTask5Params(void);             /* 任务 5 特调参数 */
 void   Servo_SetTask6Params(void);             /* 任务 6 特调参数 */
 void   Servo_SetBallTargetCm(int16 cm_x10);    /* 球目标 cm(0.1)→像素（Launch 预览/任务6） */

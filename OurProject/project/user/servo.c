@@ -9,6 +9,7 @@
 int16 servo_center_duty = 4740;   /* 摆杆水平 */
 int16 pixel_zero        = 175;    /* O 点像素 X */
 int16 px_per_cm         = 11;     /* 每 cm 像素数 */
+int16 ball_target_px     = 0;     /* 像素偏移目标（任务6，Launch BallTgtPx） */
 int16 ball_target_cm_x10 = 0;
 
 /* 球目标像素 X（任务3/5/6 设置） */
@@ -42,15 +43,20 @@ void Servo_SetDefaultParams(void)
     cur_kp = SERVO_KP; cur_ki = SERVO_KI; cur_kd = SERVO_KD; cur_kf = SERVO_KF; cur_kv = SERVO_KV;
 }
 
-/* 球目标 cm(0.1cm) → 像素并设 g_servo_target（Launch 页预览 / 任务6 用） */
+/* 最终球目标 = pixel_zero + px偏移 + cm偏移（Launch 页预览 / 任务6 用） */
 void Servo_SetBallTargetCm(int16 cm_x10)
 {
-    g_servo_target = (int16)(pixel_zero + ((int32)cm_x10 * px_per_cm) / 10);
+    g_servo_target = (int16)(pixel_zero + ball_target_px + ((int32)cm_x10 * px_per_cm) / 10);
 }
 
 void Servo_SetTask3Params(void)
 {
     cur_kp = SERVO_T3_KP; cur_ki = SERVO_T3_KI; cur_kd = SERVO_T3_KD; cur_kf = SERVO_T3_KF; cur_kv = SERVO_T3_KV;
+}
+
+void Servo_SetTask4Params(void)
+{
+    cur_kp = SERVO_T4_KP; cur_ki = SERVO_T4_KI; cur_kd = SERVO_T4_KD; cur_kf = SERVO_T4_KF; cur_kv = SERVO_T4_KV;
 }
 
 void Servo_SetTask5Params(void)

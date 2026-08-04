@@ -44,7 +44,7 @@ void main(void)
     {
         /* ── 菜单阶段：按键导航，等待 Launch 选任务 ── */
         {
-            uint8 refresh_cd = 0;    /* 每 100ms 刷新菜单（Ball Cal 页看实时球位） */
+            uint8 refresh_cd = 0;    /* Launch 页每 100ms 刷新 Ball 球位置显示 */
             while (!launch_triggered)
             {
                 button_control(KEY_REPEAT_KEY1 | KEY_REPEAT_KEY2);
@@ -58,15 +58,15 @@ void main(void)
                     else                        Menu_Cancel();             /* 子页 → 回上层 */
                 }
 
-                /* Launch 页：Ball Tgt 实时预览（编辑后球马上滚到目标位置），离开回 O */
+                /* Launch 页：球目标实时预览（Px+Cm 组合），离开回 O */
                 if (Menu_IsTop(&page_launch)) Servo_SetBallTargetCm(ball_target_cm_x10);
                 else if (g_servo_target != pixel_zero) g_servo_target = pixel_zero;
 
-                /* 仅 BallCal 页每 100ms 局部刷新值列（BallPx 实时球位），其他页不刷新 */
+                /* Launch 页每 100ms：刷新 Ball 球位置显示 */
                 if (++refresh_cd >= 10)
                 {
                     refresh_cd = 0;
-                    if (Menu_IsTop(&page_ballpid)) { ball_px_display = proto_ball_x; Menu_RedrawValues(); }
+                    if (Menu_IsTop(&page_launch)) { ball_display = proto_ball_x; Menu_RedrawValues(); }
                 }
                 system_delay_ms(10);
             }

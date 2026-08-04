@@ -22,6 +22,7 @@ typedef enum {
     TASK_IDLE = 0,
     TASK_2,    /* 巡线一圈 */
     TASK_3,    /* 球 O→+5→-5 往返 */
+    TASK_4,    /* A→B 球稳 O，跑 8s */
     TASK_5,    /* 一圈 + 球稳 O */
     TASK_6     /* 一圈 + 球稳指定位置 */
 } TaskId;

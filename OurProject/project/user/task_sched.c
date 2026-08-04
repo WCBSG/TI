@@ -25,12 +25,15 @@ static uint32 last_elapsed_ms = 0;
 #define BACKUP_MS         500    /* 任务2 停车后固定后退时长（补偿过头） */
 #define BACKUP_L          2000   /* 左轮后退 duty（慢） */
 #define BACKUP_R          2800   /* 右轮后退 duty（快，>左轮，微调方向） */
-#define START_SLOW_MS     2000    /* 缓启动：起步 S 曲线加速时长（ms），加速度平滑防甩球 */
+#define START_SLOW_T4_MS  1500   /* 任务4 缓启动时长（8s 限时，起步快些） */
+#define START_SLOW_T5_MS  2000   /* 任务5 缓启动时长 */
+#define START_SLOW_T6_MS  2000   /* 任务6 缓启动时长 */
 
-/* 球目标 cm(0.1cm) → 像素：offset = cm * px_per_cm / 10 */
+/* 球目标 cm(0.1cm) → 像素：最终 = pixel_zero + px偏移(仅任务6) + cm*px_per_cm/10 */
 static void ball_set_cm(int16 cm_x10)
 {
-    g_servo_target = (int16)(pixel_zero + ((int32)cm_x10 * px_per_cm) / 10);
+    int16 px_off = (current_task == TASK_6) ? ball_target_px : 0;
+    g_servo_target = (int16)(pixel_zero + px_off + ((int32)cm_x10 * px_per_cm) / 10);
 }
 
 static uint8 line_is_stop(const int s[8])   /* ≥3 路连续亮 = 停车线 */
@@ -55,6 +58,7 @@ static int line_drive_run(uint8 enable_ball, int16 ball_target)
     uint32 last_sec = 0xFFFFFFFF;   /* 上次显示的秒（初始非法值强制首帧刷新） */
     int    result = TASK_RESULT_OK;
     const uint32 line_timeout_ms = (current_task == TASK_2) ? 20000UL : 30000UL;
+    const uint32 slow_ms = (current_task == TASK_5) ? START_SLOW_T5_MS : START_SLOW_T6_MS;
 
     motor1_control(0);
     motor2_control(0);
@@ -115,9 +119,9 @@ static int line_drive_run(uint8 enable_ball, int16 ball_target)
                 }
                 motor1_control(0);
                 motor2_control(0);
-                if (!enable_ball)
+                if (!enable_ball && t2_backup_enable)
                 {
-                    /* 任务 2 停车后：固定后退 200ms 补偿过头（右轮快，微调方向） */
+                    /* 任务 2 停车后：倒车补偿过头（右轮快，微调方向）；T2_Back=0 则马上停 */
                     uint32 t0, dt;
                     EA = 0; t0 = pit_tick; EA = 1;
                     while (1)
@@ -147,10 +151,10 @@ static int line_drive_run(uint8 enable_ball, int16 ball_target)
             if (enable_ball)
             {
                 EA = 0; elapsed_ms = (pit_tick - start_tick) * 5; EA = 1;
-                if (elapsed_ms < START_SLOW_MS)
+                if (elapsed_ms < slow_ms)
                 {
                     g_soft_starting = 1;
-                    spd = (int16)((int32)base_speed * (int32)elapsed_ms / START_SLOW_MS);
+                    spd = (int16)((int32)base_speed * (int32)elapsed_ms / slow_ms);
                 }
                 else g_soft_starting = 0;
             }
@@ -176,6 +180,69 @@ static int line_drive_run(uint8 enable_ball, int16 ball_target)
     motor2_control(0);
     if (!enable_ball) imu_ctrl_stop();       /* 任务 2 跑完 deinit 陀螺仪 */
     /* 任务 6 不回中：球保持目标位置（结果页裁判看到任务位置），退出结果页才回中（对齐任务 3） */
+
+    EA = 0; elapsed_ms = (pit_tick - start_tick) * 5; EA = 1;
+    last_elapsed_ms = elapsed_ms;
+    return result;
+}
+
+/* ═══ 任务 4：A→B 球稳 O，巡线跑 8s 完成（无停车线/yaw，定时到 B；单独参数 SERVO_T4） ═══ */
+static int task4_run(void)
+{
+    int s[8];
+    uint32 start_tick, elapsed_ms;
+    uint32 last_sec = 0xFFFFFFFF;
+    int    result = TASK_RESULT_OK;
+    const uint32 t4_duration_ms = 8000UL;   /* 跑 8s（AB 段） */
+
+    motor1_control(0);
+    motor2_control(0);
+    g_soft_starting = 0;
+    Servo_Enable();
+    ball_set_cm(0);
+
+    WcTFT_Clear(RGB565_BLACK);
+    WcTFT_SetColor(RGB565_WHITE, RGB565_BLACK);
+    WcTFT_PrintCenter(0, "TASK 4");
+
+    EA = 0; start_tick = pit_tick; EA = 1;
+
+    while (1)
+    {
+        int err;
+        IRPHOTO_Read(s);
+
+        /* 巡线 + 缓启动（线性，球稳起步防甩球） */
+        err = calc_error(s);
+        {
+            int16 spd = base_speed;
+            EA = 0; elapsed_ms = (pit_tick - start_tick) * 5; EA = 1;
+            if (elapsed_ms < START_SLOW_T4_MS)
+            {
+                g_soft_starting = 1;
+                spd = (int16)((int32)base_speed * (int32)elapsed_ms / START_SLOW_T4_MS);
+            }
+            else g_soft_starting = 0;
+            line_ctrl_set(err, spd);
+        }
+
+        /* 简易时钟：整秒变化才刷新（1Hz，省算力） */
+        if (elapsed_ms / 1000 != last_sec)
+        {
+            last_sec = elapsed_ms / 1000;
+            WcTFT_PrintAt(0, 32, "                ");
+            WcTFT_PrintAt(0, 32, "T:");
+            WcTFT_PrintIntAt(24, 32, (int32)last_sec);
+            WcTFT_PrintAt(48, 32, "s");
+        }
+
+        /* 跑 8s 完成（定时到 B，无停车线） */
+        if (elapsed_ms >= t4_duration_ms) { result = TASK_RESULT_OK; break; }
+    }
+
+    motor1_control(0);
+    motor2_control(0);
+    /* 任务 4 保持球位不回中（对齐任务 3/6），退出结果页回中 */
 
     EA = 0; elapsed_ms = (pit_tick - start_tick) * 5; EA = 1;
     last_elapsed_ms = elapsed_ms;
@@ -308,11 +375,13 @@ void task_sched_run(void)
     int result;
 
     if (current_task == TASK_2) { line_ctrl_apply_t2(); base_speed = base_speed_t2; }
+    else if (current_task == TASK_4) { line_ctrl_apply_other(); base_speed = base_speed_t4; }
     else { line_ctrl_apply_other(); base_speed = base_speed_ot; }
 
     switch (current_task)
     {
         case TASK_2: result = line_drive_run(0, 0);                            break;
+        case TASK_4: Servo_SetTask4Params(); result = task4_run();             break;
         case TASK_5: Servo_SetTask5Params(); result = line_drive_run(1, 0);    break;
         case TASK_6: Servo_SetTask6Params(); result = line_drive_run(1, ball_target_cm_x10); break;
         case TASK_3: result = task3_run();                                     break;   /* task3_run 内部已切任务3参数 */
@@ -323,6 +392,6 @@ void task_sched_run(void)
     Servo_Enable();           /* 任务结束恢复常开（任务 2 运行中已关闭，其他任务回中后恢复控球） */
     task_sched_show_result(result);
 
-    /* 任务 3/6：结果页保持球位（任务位置）避免扯皮，退出结果页回中后恢复常开（否则舵机禁用无反应） */
-    if (current_task == TASK_3 || current_task == TASK_6) { Servo_Control_Init(); Servo_Enable(); }
+    /* 任务 3/4/6：结果页保持球位（任务位置）避免扯皮，退出结果页回中后恢复常开（否则舵机禁用无反应） */
+    if (current_task == TASK_3 || current_task == TASK_4 || current_task == TASK_6) { Servo_Control_Init(); Servo_Enable(); }
 }

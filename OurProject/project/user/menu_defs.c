@@ -42,54 +42,48 @@ static const MenuItem steer56_items[] = {
 };
 static MenuPage page_steer56 = MENU_PAGE("Steer 5/6", steer56_items, 5);
 
-int16 ball_px_display = 0;   /* Ball Cal 页 BallPx 显示副本（main 每 100ms 从 proto_ball_x 刷新） */
-
-/* ── Ball Cal 页：球稳标定（servo 像素域 PID 宏定死，现场只调标定）
- *   BallPx 只读项：实时显示球像素 X（main 每 100ms 刷新），标定用：
- *     球放 O → 读 BallPx → 填 Pix0；球移 ±5cm → 读像素差 ÷5 → 填 P/cm */
-static const MenuItem ballpid_items[] = {
-    MENU_ITEM_VAL_RANGE(1, "Center", &servo_center_duty, 10, SERVO_MIN, SERVO_MAX),
-    MENU_ITEM_VAL_RANGE(2, "Pix0",   &pixel_zero,         1,  0,        320),
-    MENU_ITEM_VAL_RANGE(3, "P/cm",   &px_per_cm,          1,  1,        100),
-    MENU_ITEM_VAL_RANGE(4, "BallPx", &ball_px_display,    0,  0,        319),
-};
-MenuPage page_ballpid = MENU_PAGE("Ball Cal", ballpid_items, 4);
-
 /* ═══════════════════════════════════════════════════════════
  * 回调：子页导航
  * ════════════════════════════════════════════════════════════ */
 static void cb_steer2(void)  { Menu_Push(&page_steer2); }
 static void cb_steer56(void) { Menu_Push(&page_steer56); }
-static void cb_ballpid(void) { Menu_Push(&page_ballpid); }
 
 /* ═══════════════════════════════════════════════════════════
  * Launch 任务选择页 — 点选任务项即启动
  * ════════════════════════════════════════════════════════════ */
 uint8 launch_triggered = 0;
+int16 t2_backup_enable  = 1;    /* 任务2 停车后倒车开关（Launch 页 T2_Back 调） */
+int16 ball_display      = 0;    /* Launch 页 Ball 显示当前球位置（main 每 100ms 刷新） */
 int16 base_speed        = 3000;   /* 当前激活基准 duty（任务启动时应用对应任务值） */
 int16 base_speed_t2     = 4000;   /* 任务 2：40% 占空比 */
+int16 base_speed_t4     = 3200;   /* 任务 4：更快（8s 走 AB 1.5m） */
 int16 base_speed_ot     = 2100;   /* 其他任务：21% 占空比 */
 
 static void cb_task2(void) { task_sched_set(TASK_2); launch_triggered = 1; }
 static void cb_task3(void) { task_sched_set(TASK_3); launch_triggered = 1; }
+static void cb_task4(void) { task_sched_set(TASK_4); launch_triggered = 1; }
 static void cb_task5(void) { task_sched_set(TASK_5); launch_triggered = 1; }
 static void cb_task6(void) { task_sched_set(TASK_6); launch_triggered = 1; }
 
 static const MenuItem launch_items[] = {
-    MENU_ITEM(1, "Task 2",  cb_task2),
-    MENU_ITEM(2, "Task 3",  cb_task3),
-    MENU_ITEM(3, "Task 5",  cb_task5),
-    MENU_ITEM(4, "Task 6",  cb_task6),
-    MENU_ITEM_VAL_RANGE(5, "Ball Tgt", &ball_target_cm_x10, 5, -120, 120),
+    MENU_ITEM_VAL_RANGE(1, "T2_Back", &t2_backup_enable, 1, 0, 1),
+    MENU_ITEM(2, "Task 2",  cb_task2),
+    MENU_ITEM(3, "Task 3",  cb_task3),
+    MENU_ITEM(4, "Task 4",  cb_task4),
+    MENU_ITEM(5, "Task 5",  cb_task5),
+    MENU_ITEM(6, "Task 6",  cb_task6),
+    MENU_ITEM_VAL_RANGE(7, "BallTgtPx", &ball_target_px, 5, -160, 160),   /* 像素偏移目标 */
+    MENU_ITEM_VAL_RANGE(8, "BallTgtCm", &ball_target_cm_x10, 5, -120, 120), /* cm 偏移目标 */
+    MENU_ITEM_VAL_RANGE(9, "Ball", &ball_display, 0, 0, 319),               /* 当前球位置（只读） */
 };
-MenuPage page_launch = MENU_PAGE("LAUNCH", launch_items, 5);
+MenuPage page_launch = MENU_PAGE("LAUNCH", launch_items, 9);
 
 /* ═══════════════════════════════════════════════════════════
  * 主菜单
  * ════════════════════════════════════════════════════════════ */
 static const MenuItem main_items[] = {
     MENU_ITEM(1, "Steer T2",  cb_steer2),
-    MENU_ITEM(2, "Steer 5/6", cb_steer56),
-    MENU_ITEM(3, "Ball Cal",  cb_ballpid),
+    MENU_ITEM_VAL_RANGE(2, "T4 Spd", &base_speed_t4, 100, 0, 6000),   /* 任务4 速度直接调 */
+    MENU_ITEM(3, "Steer 5/6", cb_steer56),
 };
 MenuPage page_main = MENU_PAGE("Main Menu", main_items, 3);
