@@ -88,10 +88,6 @@ extern int16 g_servo_target;
 /* 控制使能：任务 3/5/6 + BallCal 页 = 1，其他禁用（Servo_Control_Init 复位为 0） */
 extern uint8 servo_enable;
 
-/* 起步缓冲（E09 借鉴）：缓启动期间 g_soft_starting=1，servo 目标临时偏移抵消加速惯性（球不甩）
- * 方向反了改 SOFT_START_OFFSET 符号 */
-#define SOFT_START_OFFSET   10
-extern uint8 g_soft_starting;   /* 缓启动标志（task_sched 缓启动块置位） */
 
 /* ── 函数声明 ── */
 void   Servo_Init(void);                       /* 舵机 PWM 初始化 */
