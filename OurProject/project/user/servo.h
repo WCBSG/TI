@@ -104,8 +104,8 @@ extern volatile uint8 g_soft_starting;
 
 /* ── 任务 4 发车 PID 独立（起步更强，现场调宏） ── */
 #define SERVO_START_T4_KP  70.0f
-#define SERVO_START_T4_KI  0.2f
-#define SERVO_START_T4_KD  1400.0f
+#define SERVO_START_T4_KI  0.0f
+#define SERVO_START_T4_KD  1000.0f
 #define SERVO_START_T4_KF  40.0f
 #define SERVO_START_T4_KV  450.0f
 
