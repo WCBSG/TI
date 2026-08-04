@@ -21,7 +21,7 @@ static uint32 last_elapsed_ms = 0;
 
 #define T3_STABLE_ERR     12     /* 任务3 稳定判定：误差（像素） */
 #define T3_STABLE_MS      200    /* 任务3 稳定判定：持续（ms） */
-#define STOP_SLOW_MS      2500    /* 任务5/6 缓停时长（ms，S 曲线） */
+#define STOP_SLOW_MS      3000    /* 任务5/6 缓停时长（ms，减速更慢多走距离） */
 #define BACKUP_MS         500    /* 任务2 停车后固定后退时长（补偿过头） */
 #define BACKUP_L          2000   /* 左轮后退 duty（慢） */
 #define BACKUP_R          2800   /* 右轮后退 duty（快，>左轮，微调方向） */

@@ -94,6 +94,14 @@ extern volatile uint8 servo_enable;
 #define SOFT_START_OFFSET   -30
 extern volatile uint8 g_soft_starting;
 
+/* ── 发车阶段 PID（g_soft_starting=1 时用，起步更强拉住球，行驶后回任务参数） ──
+ * 起步惯性球被甩，更强 KP/KD 快速拉回；初值现场调 */
+#define SERVO_START_KP  30.0f
+#define SERVO_START_KI  0.0f
+#define SERVO_START_KD  2500.0f
+#define SERVO_START_KF  50.0f
+#define SERVO_START_KV  400.0f
+
 
 /* ── 函数声明 ── */
 void   Servo_Init(void);                       /* 舵机 PWM 初始化 */

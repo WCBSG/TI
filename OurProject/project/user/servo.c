@@ -158,23 +158,30 @@ uint16 Servo_Control_Update(int16 cx)
         error_sum = 0.0f;
     }
 
-    control = cur_kp * error
-            + cur_ki * error_sum
-            + cur_kd * filtered_diff;
-
-    /* 速度前馈：球速（5ms 像素位移）低通 × Kv，球开始滚就反向推，抵消车运动带动球 */
+    /* 速度前馈更新：球速（5ms 像素位移）低通 */
     if (last_cx >= 0)
     {
         float speed = (float)(cx - last_cx);
         filtered_speed = (filtered_speed * 15.0f + speed) / 16.0f;
-        control += cur_kv * filtered_speed;
     }
     last_cx = cx;
 
-    /* 前馈：静摩擦补偿，误差大时额外推一把 */
-    if (abs_error > SERVO_FF_DEADZONE)
+    /* 发车阶段用更强 PID（拉住起步惯性球），行驶后回任务参数 */
+    if (g_soft_starting)
     {
-        control += (error > 0) ? cur_kf : -cur_kf;
+        control = SERVO_START_KP * error
+                + SERVO_START_KI * error_sum
+                + SERVO_START_KD * filtered_diff
+                + SERVO_START_KV * filtered_speed;
+        if (abs_error > SERVO_FF_DEADZONE) control += (error > 0) ? SERVO_START_KF : -SERVO_START_KF;
+    }
+    else
+    {
+        control = cur_kp * error
+                + cur_ki * error_sum
+                + cur_kd * filtered_diff
+                + cur_kv * filtered_speed;
+        if (abs_error > SERVO_FF_DEADZONE) control += (error > 0) ? cur_kf : -cur_kf;
     }
 
 #if SERVO_INVERT
