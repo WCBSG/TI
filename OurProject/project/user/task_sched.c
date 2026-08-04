@@ -138,13 +138,17 @@ static int line_drive_run(uint8 enable_ball, int16 ball_target)
         if (stop_done) break;   /* 停车确认后立即退出，不再打巡线一拍（防停前窜动） */
 
         /* 巡线（球稳由 5ms 中断驱动，主循环不调 tick）
-         * 缓启动：起步 START_SLOW_MS 内速度从 0 线性升，防发车甩球（球稳来不及反应） */
+         * 缓启动（仅球稳任务 5/6）：起步 START_SLOW_MS 内速度从 0 线性升，防发车甩球
+         * 任务 2 无球稳，直接满速起步（不缓启动） */
         err = calc_error(s);
         {
             int16 spd = base_speed;
-            EA = 0; elapsed_ms = (pit_tick - start_tick) * 5; EA = 1;
-            if (elapsed_ms < START_SLOW_MS)
-                spd = (int16)((int32)base_speed * (int32)elapsed_ms / START_SLOW_MS);
+            if (enable_ball)
+            {
+                EA = 0; elapsed_ms = (pit_tick - start_tick) * 5; EA = 1;
+                if (elapsed_ms < START_SLOW_MS)
+                    spd = (int16)((int32)base_speed * (int32)elapsed_ms / START_SLOW_MS);
+            }
             line_ctrl_set(err, spd);
         }
 

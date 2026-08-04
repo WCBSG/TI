@@ -80,7 +80,7 @@ static const MenuItem launch_items[] = {
     MENU_ITEM(2, "Task 3",  cb_task3),
     MENU_ITEM(3, "Task 5",  cb_task5),
     MENU_ITEM(4, "Task 6",  cb_task6),
-    MENU_ITEM_VAL_RANGE(5, "Ball Tgt", &ball_target_cm_x10, 5, -50, 50),
+    MENU_ITEM_VAL_RANGE(5, "Ball Tgt", &ball_target_cm_x10, 5, -120, 120),
 };
 MenuPage page_launch = MENU_PAGE("LAUNCH", launch_items, 5);
 

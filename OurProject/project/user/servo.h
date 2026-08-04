@@ -29,8 +29,8 @@ extern int16 ball_target_cm_x10; /* 任务6 球目标位置（0.1cm，相对 O�
  * KF: 前馈(误差>8 推第一把) | I_MAX: 积分限幅
  * ════════════════════════════════════════════════════════════ */
 #define SERVO_KP        10.0f
-#define SERVO_KI        0.00f    /* 积分项：消除稳态误差（纯视觉追踪必须开启） */
-#define SERVO_KD        300.0f
+#define SERVO_KI        0.01f    /* 积分项：消除稳态误差（纯视觉追踪必须开启） */
+#define SERVO_KD        600.0f
 #define SERVO_KF        20.0f
 #define SERVO_I_MAX     500.0f
 #define SERVO_I_DEADZONE 50      /* 积分累积死区：|error|<该值才积分 */
