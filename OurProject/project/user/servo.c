@@ -17,6 +17,7 @@ volatile int16 g_servo_target = 175;   /* 默认 O 点（pixel_zero 初始值）
 
 /* 控制使能：任务 3/5/6 = 1，其他禁用（中断里检查，防止回中后又被 PID 覆盖） */
 volatile uint8 servo_enable = 0;
+volatile uint8 g_soft_starting = 0;   /* 起步预倾斜标志（PWM 达阈值才置位） */
 
 /* 5ms 中断累加的毫秒计数器（Servo_Timer_Callback 每 5ms 加一次，任务3 稳定判定用） */
 volatile uint32 g_servo_ms = 0;
@@ -127,6 +128,9 @@ uint16 Servo_Control_Update(int16 cx)
     int16 servo_duty;
     float error_diff;
     float control;
+
+    /* 起步预倾斜：PWM 达阈值后目标偏移，抵消加速惯性（防球被甩） */
+    if (g_soft_starting) target += SOFT_START_OFFSET;
 
     /* 目标切换时清空历史/滤波状态，避免旧数据污染新目标 */
     if (target != last_target)

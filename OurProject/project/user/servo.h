@@ -47,24 +47,24 @@ extern int16 ball_target_cm_x10; /* 任务6 球目标 cm（0.1）偏移（Launch
  * 基于 E09（KD800 强刹车/KF5 弱前馈/KI0），真机过冲 1.5cm → KD 升到 1100 增强刹车
  * 真机对比调：超调→升 KD；不到位/慢→加 KI 破静摩擦或升 KF */
 #define SERVO_T3_KP  10.0f
-#define SERVO_T3_KI  0.0f
-#define SERVO_T3_KD  1200.0f
+#define SERVO_T3_KI  0.03f
+#define SERVO_T3_KD  1100.0f
 #define SERVO_T3_KF  5.0f
 #define SERVO_T3_KV  0.0f     /* 任务3 静止不用速度前馈 */
 
 /* ── 任务 4 参数（A→B 球稳 O，现场调宏，初值=默认） ── */
-#define SERVO_T4_KP  10.0f
-#define SERVO_T4_KI  0.01f
-#define SERVO_T4_KD  600.0f
-#define SERVO_T4_KF  20.0f
+#define SERVO_T4_KP  21.5f
+#define SERVO_T4_KI  0.00f
+#define SERVO_T4_KD  1400.0f
+#define SERVO_T4_KF  44.0f
 #define SERVO_T4_KV  400.0f
 
 /* ── 任务 5 参数（行驶球稳 O，现场调宏，初值=默认） ── */
-#define SERVO_T5_KP  10.0f
+#define SERVO_T5_KP  21.5f
 #define SERVO_T5_KI  0.00f
-#define SERVO_T5_KD  800.0f
-#define SERVO_T5_KF  20.0f
-#define SERVO_T5_KV  400.0f
+#define SERVO_T5_KD  1400.0f
+#define SERVO_T5_KF  44.0f
+#define SERVO_T5_KV  460.0f
 
 /* ── 任务 6 参数（行驶球稳指定位置，现场调宏，初值=默认） ── */
 #define SERVO_T6_KP  10.0f
@@ -87,6 +87,12 @@ extern volatile int16 g_servo_target;
 
 /* 控制使能：任务 3/5/6 = 1，其他禁用（Servo_Control_Init 复位为 0；主循环写、中断读，volatile） */
 extern volatile uint8 servo_enable;
+
+/* 起步预倾斜（抵消加速惯性）：电机 PWM ≥ START_TILT_PWM 才触发（避免起步初期舵机先动）
+ * g_soft_starting=1 时 servo 目标偏移 SOFT_START_OFFSET（px，方向反了改负） */
+#define START_TILT_PWM      950    /* 电机 PWM 达此值才启动预倾斜（duty，现场调） */
+#define SOFT_START_OFFSET   -30
+extern volatile uint8 g_soft_starting;
 
 
 /* ── 函数声明 ── */
