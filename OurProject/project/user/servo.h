@@ -57,11 +57,11 @@ extern int16 ball_target_cm_x10; /* 任务6 球目标 cm（0.1）偏移（Launch
 #define SERVO_T4_KI  0.00f
 #define SERVO_T4_KD  1400.0f
 #define SERVO_T4_KF  44.0f
-#define SERVO_T4_KV  400.0f
+#define SERVO_T4_KV  460.0f
 
 /* ── 任务 5 参数（行驶球稳 O，现场调宏，初值=默认） ── */
-#define SERVO_T5_KP  21.5f
-#define SERVO_T5_KI  0.00f
+#define SERVO_T5_KP  24.5f
+#define SERVO_T5_KI  0.03f
 #define SERVO_T5_KD  1400.0f
 #define SERVO_T5_KF  44.0f
 #define SERVO_T5_KV  460.0f
@@ -90,8 +90,8 @@ extern volatile uint8 servo_enable;
 
 /* 起步预倾斜（抵消加速惯性）：电机 PWM ≥ START_TILT_PWM 才触发（避免起步初期舵机先动）
  * g_soft_starting=1 时 servo 目标偏移 SOFT_START_OFFSET（px，方向反了改负） */
-#define START_TILT_PWM      950    /* 电机 PWM 达此值才启动预倾斜（duty，现场调） */
-#define SOFT_START_OFFSET   -30
+#define START_TILT_PWM      920    /* 电机 PWM 达此值才启动预倾斜（duty，现场调） */
+#define SOFT_START_OFFSET   -10
 extern volatile uint8 g_soft_starting;
 
 /* ── 发车阶段 PID（g_soft_starting=1 时用，起步更强拉住球，行驶后回任务参数） ──
@@ -103,11 +103,11 @@ extern volatile uint8 g_soft_starting;
 #define SERVO_START_KV  400.0f
 
 /* ── 任务 4 发车 PID 独立（起步更强，现场调宏） ── */
-#define SERVO_START_T4_KP  30.0f
-#define SERVO_START_T4_KI  0.0f
-#define SERVO_START_T4_KD  2500.0f
-#define SERVO_START_T4_KF  50.0f
-#define SERVO_START_T4_KV  400.0f
+#define SERVO_START_T4_KP  70.0f
+#define SERVO_START_T4_KI  0.2f
+#define SERVO_START_T4_KD  1400.0f
+#define SERVO_START_T4_KF  40.0f
+#define SERVO_START_T4_KV  450.0f
 
 
 /* ── 函数声明 ── */

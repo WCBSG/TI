@@ -25,7 +25,7 @@ static uint32 last_elapsed_ms = 0;
 #define BACKUP_MS         500    /* 任务2 停车后固定后退时长（补偿过头） */
 #define BACKUP_L          2000   /* 左轮后退 duty（慢） */
 #define BACKUP_R          2800   /* 右轮后退 duty（快，>左轮，微调方向） */
-#define START_SLOW_T4_MS  1500   /* 任务4 缓启动时长（8s 限时，起步快些） */
+#define START_SLOW_T4_MS  2500   /* 任务4 缓启动时长（8s 限时，起步快些） */
 #define START_SLOW_T5_MS  2000   /* 任务5 缓启动时长 */
 #define START_SLOW_T6_MS  2000   /* 任务6 缓启动时长 */
 #define RUN_BEFORE_STOP_MS 1000  /* 任务5/6 缓停前继续全速跑时长（让车到 A 点） */
