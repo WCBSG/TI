@@ -25,6 +25,7 @@ static uint32 last_elapsed_ms = 0;
 #define BACKUP_MS         500    /* 任务2 停车后固定后退时长（补偿过头） */
 #define BACKUP_L          2000   /* 左轮后退 duty（慢） */
 #define BACKUP_R          2800   /* 右轮后退 duty（快，>左轮，微调方向） */
+#define START_SLOW_MS     500    /* 缓启动：起步线性加速时长（ms），防发车甩球（球稳来不及反应） */
 
 /* 球目标 cm(0.1cm) → 像素：offset = cm * px_per_cm / 10 */
 static void ball_set_cm(int16 cm_x10)
@@ -136,9 +137,16 @@ static int line_drive_run(uint8 enable_ball, int16 ball_target)
 
         if (stop_done) break;   /* 停车确认后立即退出，不再打巡线一拍（防停前窜动） */
 
-        /* 巡线（球稳由 5ms 中断驱动，主循环不调 tick） */
+        /* 巡线（球稳由 5ms 中断驱动，主循环不调 tick）
+         * 缓启动：起步 START_SLOW_MS 内速度从 0 线性升，防发车甩球（球稳来不及反应） */
         err = calc_error(s);
-        line_ctrl_set(err, base_speed);
+        {
+            int16 spd = base_speed;
+            EA = 0; elapsed_ms = (pit_tick - start_tick) * 5; EA = 1;
+            if (elapsed_ms < START_SLOW_MS)
+                spd = (int16)((int32)base_speed * (int32)elapsed_ms / START_SLOW_MS);
+            line_ctrl_set(err, spd);
+        }
 
         EA = 0; elapsed_ms = (pit_tick - start_tick) * 5; EA = 1;
 
