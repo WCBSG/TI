@@ -169,8 +169,8 @@ static int line_drive_run(uint8 enable_ball, int16 ball_target)
 
     motor1_control(0);
     motor2_control(0);
-    if (enable_ball) Servo_Control_Init();   /* 舵机回中 + 复位 + 禁用 */
-    else imu_ctrl_stop();                    /* 任务 2 跑完 deinit 陀螺仪 */
+    if (!enable_ball) imu_ctrl_stop();       /* 任务 2 跑完 deinit 陀螺仪 */
+    /* 任务 6 不回中：球保持目标位置（结果页裁判看到任务位置），退出结果页才回中（对齐任务 3） */
 
     EA = 0; elapsed_ms = (pit_tick - start_tick) * 5; EA = 1;
     last_elapsed_ms = elapsed_ms;
@@ -317,6 +317,6 @@ void task_sched_run(void)
     Servo_Enable();           /* 任务结束恢复常开（任务 2 运行中已关闭，其他任务回中后恢复控球） */
     task_sched_show_result(result);
 
-    /* 任务 3：结果页保持球位（-5cm）避免扯皮，退出结果页回中后恢复常开（否则舵机禁用无反应） */
-    if (current_task == TASK_3) { Servo_Control_Init(); Servo_Enable(); }
+    /* 任务 3/6：结果页保持球位（任务位置）避免扯皮，退出结果页回中后恢复常开（否则舵机禁用无反应） */
+    if (current_task == TASK_3 || current_task == TASK_6) { Servo_Control_Init(); Servo_Enable(); }
 }
