@@ -47,7 +47,7 @@ extern int16 ball_target_cm_x10; /* 任务6 球目标位置（0.1cm，相对 O�
  * 真机对比调：超调→升 KD；不到位/慢→加 KI 破静摩擦或升 KF */
 #define SERVO_T3_KP  10.0f
 #define SERVO_T3_KI  0.0f
-#define SERVO_T3_KD  1100.0f
+#define SERVO_T3_KD  1200.0f
 #define SERVO_T3_KF  5.0f
 #define SERVO_T3_KV  0.0f     /* 任务3 静止不用速度前馈 */
 

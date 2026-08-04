@@ -25,7 +25,7 @@ static uint32 last_elapsed_ms = 0;
 #define BACKUP_MS         500    /* 任务2 停车后固定后退时长（补偿过头） */
 #define BACKUP_L          2000   /* 左轮后退 duty（慢） */
 #define BACKUP_R          2800   /* 右轮后退 duty（快，>左轮，微调方向） */
-#define START_SLOW_MS     500    /* 缓启动：起步线性加速时长（ms），防发车甩球（球稳来不及反应） */
+#define START_SLOW_MS     2000    /* 缓启动：起步线性加速时长（ms），防发车甩球（球稳来不及反应） */
 
 /* 球目标 cm(0.1cm) → 像素：offset = cm * px_per_cm / 10 */
 static void ball_set_cm(int16 cm_x10)
