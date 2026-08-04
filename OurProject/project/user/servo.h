@@ -36,6 +36,11 @@ extern int16 ball_target_cm_x10; /* 任务6 球目标位置（0.1cm，相对 O�
 #define SERVO_I_DEADZONE 50      /* 积分累积死区：|error|<该值才积分 */
 #define SERVO_FF_DEADZONE 8      /* 前馈死区：|error|>该值才加前馈 */
 
+/* ── 速度前馈（Zui1 借鉴，行驶中稳球关键） ──
+ * 球速 = 5ms 像素位移（低通 α=1/16）× Kv → 球开始滚就反向推舵机，抵消车运动带动球
+ * 换算：Zui1 用 20ms 位移×Kv100 ≈ 本工程 5ms 位移×Kv400 */
+#define SERVO_KV        400.0f
+
 /* ── 任务 3 特调参数（与归中/任务5/6 分开） ──
  * 基于 E09（KD800 强刹车/KF5 弱前馈/KI0），真机过冲 1.5cm → KD 升到 1100 增强刹车
  * 真机对比调：超调→升 KD；不到位/慢→加 KI 破静摩擦或升 KF */

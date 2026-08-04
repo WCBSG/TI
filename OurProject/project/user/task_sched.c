@@ -22,6 +22,9 @@ static uint32 last_elapsed_ms = 0;
 #define T3_STABLE_ERR     12     /* 任务3 稳定判定：误差（像素） */
 #define T3_STABLE_MS      200    /* 任务3 稳定判定：持续（ms） */
 #define STOP_SLOW_MS      500    /* 任务5/6 缓停时长（ms） */
+#define BACKUP_MS         500    /* 任务2 停车后固定后退时长（补偿过头） */
+#define BACKUP_L          2000   /* 左轮后退 duty（慢） */
+#define BACKUP_R          2800   /* 右轮后退 duty（快，>左轮，微调方向） */
 
 /* 球目标 cm(0.1cm) → 像素：offset = cm * px_per_cm / 10 */
 static void ball_set_cm(int16 cm_x10)
@@ -110,6 +113,22 @@ static int line_drive_run(uint8 enable_ball, int16 ball_target)
                 }
                 motor1_control(0);
                 motor2_control(0);
+                if (!enable_ball)
+                {
+                    /* 任务 2 停车后：固定后退 200ms 补偿过头（右轮快，微调方向） */
+                    uint32 t0, dt;
+                    EA = 0; t0 = pit_tick; EA = 1;
+                    while (1)
+                    {
+                        EA = 0; dt = (pit_tick - t0) * 5; EA = 1;
+                        if (dt >= BACKUP_MS) break;
+                        motor1_control(-BACKUP_L);   /* 左轮后退（慢） */
+                        motor2_control( BACKUP_R);   /* 右轮后退（快） */
+                        system_delay_ms(5);
+                    }
+                    motor1_control(0);
+                    motor2_control(0);
+                }
                 stop_done = 1;
             }
         }

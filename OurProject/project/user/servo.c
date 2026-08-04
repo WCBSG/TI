@@ -26,6 +26,8 @@ static float  error_sum     = 0.0f;
 static float  filtered_diff = 0.0f;
 static int16  last_target   = 175;
 static uint16 last_duty     = 4500;
+static int16  last_cx       = -1;     /* 上次球像素（速度前馈） */
+static float  filtered_speed = 0.0f;  /* 球速低通（速度前馈） */
 
 /* 当前生效 PID 参数（默认/任务3 可切换） */
 static float  cur_kp = SERVO_KP;
@@ -83,6 +85,8 @@ void Servo_Control_Init(void)   /* 回中 + PID 复位 + 禁用控制 + 关 UART
     filtered_diff   = 0.0f;
     last_target     = pixel_zero;
     last_duty       = (uint16)servo_center_duty;
+    last_cx         = -1;
+    filtered_speed  = 0.0f;
     Servo_SetDefaultParams();   /* 恢复默认参数（任务3 特调结束后回归） */
     Servo_PWM_Set((uint16)servo_center_duty);
     Protocol_Stop();
@@ -129,6 +133,15 @@ uint16 Servo_Control_Update(int16 cx)
     control = cur_kp * error
             + cur_ki * error_sum
             + cur_kd * filtered_diff;
+
+    /* 速度前馈：球速（5ms 像素位移）低通 × Kv，球开始滚就反向推，抵消车运动带动球 */
+    if (last_cx >= 0)
+    {
+        float speed = (float)(cx - last_cx);
+        filtered_speed = (filtered_speed * 15.0f + speed) / 16.0f;
+        control += SERVO_KV * filtered_speed;
+    }
+    last_cx = cx;
 
     /* 前馈：静摩擦补偿，误差大时额外推一把 */
     if (abs_error > SERVO_FF_DEADZONE)
