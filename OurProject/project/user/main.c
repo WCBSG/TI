@@ -62,11 +62,11 @@ void main(void)
                 if (Menu_IsTop(&page_launch)) Servo_SetBallTargetCm(ball_target_cm_x10);
                 else if (g_servo_target != pixel_zero) g_servo_target = pixel_zero;
 
-                /* Launch 页每 100ms：刷新 Ball 球位置显示 */
+                /* Launch 页每 100ms：刷新 Ball 球位置 + TGT 目标显示 */
                 if (++refresh_cd >= 10)
                 {
                     refresh_cd = 0;
-                    if (Menu_IsTop(&page_launch)) { ball_display = proto_ball_x; Menu_RedrawValues(); }
+                    if (Menu_IsTop(&page_launch)) { ball_display = proto_ball_x; tgt_display = g_servo_target; Menu_RedrawValues(); }
                 }
                 system_delay_ms(10);
             }

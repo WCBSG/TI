@@ -30,11 +30,12 @@ static uint32 last_elapsed_ms = 0;
 #define START_SLOW_T6_MS  2000   /* 任务6 缓启动时长 */
 #define RUN_BEFORE_STOP_MS 1000  /* 任务5/6 缓停前继续全速跑时长（让车到 A 点） */
 
-/* 球目标 cm(0.1cm) → 像素：最终 = pixel_zero + px偏移(仅任务6) + cm*px_per_cm/10 */
+/* 球目标 cm → 像素：最终 = pixel_zero + px偏移(仅任务6) + cm×px_per_cm
+ * cm_x10 参数 = TgtCm（cm 整数） */
 static void ball_set_cm(int16 cm_x10)
 {
     int16 px_off = (current_task == TASK_6) ? ball_target_px : 0;
-    g_servo_target = (int16)(pixel_zero + px_off + ((int32)cm_x10 * px_per_cm) / 10);
+    g_servo_target = (int16)(pixel_zero + px_off + ((int32)cm_x10 * px_per_cm));
 }
 
 static uint8 line_is_stop(const int s[8])   /* ≥3 路连续亮 = 停车线 */

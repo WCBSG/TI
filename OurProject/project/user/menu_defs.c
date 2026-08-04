@@ -54,6 +54,7 @@ static void cb_steer56(void) { Menu_Push(&page_steer56); }
 uint8 launch_triggered = 0;
 int16 t2_backup_enable  = 1;    /* 任务2 停车后倒车开关（Launch 页 T2_Back 调） */
 int16 ball_display      = 0;    /* Launch 页 Ball 显示当前球位置（main 每 100ms 刷新） */
+int16 tgt_display       = 0;    /* Launch 页 TGT 显示当前目标像素（main 每 100ms 刷新） */
 int16 base_speed        = 3000;   /* 当前激活基准 duty（任务启动时应用对应任务值） */
 int16 base_speed_t2     = 4000;   /* 任务 2：40% 占空比 */
 int16 base_speed_t4     = 2700;   /* 任务 4：25% 占空比（8s 走 AB 1.5m） */
@@ -72,11 +73,12 @@ static const MenuItem launch_items[] = {
     MENU_ITEM(4, "Task 4",  cb_task4),
     MENU_ITEM(5, "Task 5",  cb_task5),
     MENU_ITEM(6, "Task 6",  cb_task6),
-    MENU_ITEM_VAL_RANGE(7, "TgtPx", &ball_target_px, 1, -10, 10),   /* 像素偏移目标 */
+    MENU_ITEM_VAL_RANGE(7, "TgtPx", &ball_target_px, 1, -11, 11),   /* 像素偏移目标 */
     MENU_ITEM_VAL_RANGE(8, "TgtCm", &ball_target_cm_x10, 1, -12, 12), /* cm 偏移目标 */
     MENU_ITEM_VAL_RANGE(9, "Ball", &ball_display, 0, 0, 319),               /* 当前球位置（只读） */
+    MENU_ITEM_VAL_RANGE(10, "TGT", &tgt_display, 0, 0, 319),                /* 当前目标像素（只读，诊断） */
 };
-MenuPage page_launch = MENU_PAGE("LAUNCH", launch_items, 9);
+MenuPage page_launch = MENU_PAGE("LAUNCH", launch_items, 10);
 
 /* ═══════════════════════════════════════════════════════════
  * 主菜单

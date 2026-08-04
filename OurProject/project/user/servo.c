@@ -38,36 +38,53 @@ static volatile float cur_ki = SERVO_KI;
 static volatile float cur_kd = SERVO_KD;
 static volatile float cur_kf = SERVO_KF;
 static volatile float cur_kv = SERVO_KV;
+/* 发车阶段 PID（任务4 独立，其他用全局） */
+static volatile float cur_start_kp = SERVO_START_KP;
+static volatile float cur_start_ki = SERVO_START_KI;
+static volatile float cur_start_kd = SERVO_START_KD;
+static volatile float cur_start_kf = SERVO_START_KF;
+static volatile float cur_start_kv = SERVO_START_KV;
 
 void Servo_SetDefaultParams(void)
 {
     cur_kp = SERVO_KP; cur_ki = SERVO_KI; cur_kd = SERVO_KD; cur_kf = SERVO_KF; cur_kv = SERVO_KV;
+    cur_start_kp = SERVO_START_KP; cur_start_ki = SERVO_START_KI;
+    cur_start_kd = SERVO_START_KD; cur_start_kf = SERVO_START_KF; cur_start_kv = SERVO_START_KV;
 }
 
-/* 最终球目标 = pixel_zero + px偏移 + cm偏移（Launch 页预览 / 任务6 用） */
+/* 最终球目标 = pixel_zero + px偏移 + cm偏移（Launch 页预览 / 任务6 用）
+ * cm_x10 参数 = TgtCm（cm 整数），偏移 = cm × px_per_cm（每 1cm=11px） */
 void Servo_SetBallTargetCm(int16 cm_x10)
 {
-    g_servo_target = (int16)(pixel_zero + ball_target_px + ((int32)cm_x10 * px_per_cm) / 10);
+    g_servo_target = (int16)(pixel_zero + ball_target_px + ((int32)cm_x10 * px_per_cm));
 }
 
 void Servo_SetTask3Params(void)
 {
     cur_kp = SERVO_T3_KP; cur_ki = SERVO_T3_KI; cur_kd = SERVO_T3_KD; cur_kf = SERVO_T3_KF; cur_kv = SERVO_T3_KV;
+    cur_start_kp = SERVO_START_KP; cur_start_ki = SERVO_START_KI;
+    cur_start_kd = SERVO_START_KD; cur_start_kf = SERVO_START_KF; cur_start_kv = SERVO_START_KV;
 }
 
 void Servo_SetTask4Params(void)
 {
     cur_kp = SERVO_T4_KP; cur_ki = SERVO_T4_KI; cur_kd = SERVO_T4_KD; cur_kf = SERVO_T4_KF; cur_kv = SERVO_T4_KV;
+    cur_start_kp = SERVO_START_T4_KP; cur_start_ki = SERVO_START_T4_KI;
+    cur_start_kd = SERVO_START_T4_KD; cur_start_kf = SERVO_START_T4_KF; cur_start_kv = SERVO_START_T4_KV;
 }
 
 void Servo_SetTask5Params(void)
 {
     cur_kp = SERVO_T5_KP; cur_ki = SERVO_T5_KI; cur_kd = SERVO_T5_KD; cur_kf = SERVO_T5_KF; cur_kv = SERVO_T5_KV;
+    cur_start_kp = SERVO_START_KP; cur_start_ki = SERVO_START_KI;
+    cur_start_kd = SERVO_START_KD; cur_start_kf = SERVO_START_KF; cur_start_kv = SERVO_START_KV;
 }
 
 void Servo_SetTask6Params(void)
 {
     cur_kp = SERVO_T6_KP; cur_ki = SERVO_T6_KI; cur_kd = SERVO_T6_KD; cur_kf = SERVO_T6_KF; cur_kv = SERVO_T6_KV;
+    cur_start_kp = SERVO_START_KP; cur_start_ki = SERVO_START_KI;
+    cur_start_kd = SERVO_START_KD; cur_start_kf = SERVO_START_KF; cur_start_kv = SERVO_START_KV;
 }
 
 /* ── 舵机 PWM 初始化 ── */
@@ -169,11 +186,11 @@ uint16 Servo_Control_Update(int16 cx)
     /* 发车阶段用更强 PID（拉住起步惯性球），行驶后回任务参数 */
     if (g_soft_starting)
     {
-        control = SERVO_START_KP * error
-                + SERVO_START_KI * error_sum
-                + SERVO_START_KD * filtered_diff
-                + SERVO_START_KV * filtered_speed;
-        if (abs_error > SERVO_FF_DEADZONE) control += (error > 0) ? SERVO_START_KF : -SERVO_START_KF;
+        control = cur_start_kp * error
+                + cur_start_ki * error_sum
+                + cur_start_kd * filtered_diff
+                + cur_start_kv * filtered_speed;
+        if (abs_error > SERVO_FF_DEADZONE) control += (error > 0) ? cur_start_kf : -cur_start_kf;
     }
     else
     {
