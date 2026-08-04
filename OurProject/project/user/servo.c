@@ -46,6 +46,16 @@ void Servo_SetTask3Params(void)
     cur_kp = SERVO_T3_KP; cur_ki = SERVO_T3_KI; cur_kd = SERVO_T3_KD; cur_kf = SERVO_T3_KF; cur_kv = SERVO_T3_KV;
 }
 
+void Servo_SetTask5Params(void)
+{
+    cur_kp = SERVO_T5_KP; cur_ki = SERVO_T5_KI; cur_kd = SERVO_T5_KD; cur_kf = SERVO_T5_KF; cur_kv = SERVO_T5_KV;
+}
+
+void Servo_SetTask6Params(void)
+{
+    cur_kp = SERVO_T6_KP; cur_ki = SERVO_T6_KI; cur_kd = SERVO_T6_KD; cur_kf = SERVO_T6_KF; cur_kv = SERVO_T6_KV;
+}
+
 /* ── 舵机 PWM 初始化 ── */
 void Servo_Init(void)
 {

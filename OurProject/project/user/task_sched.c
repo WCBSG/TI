@@ -306,11 +306,11 @@ void task_sched_run(void)
 
     switch (current_task)
     {
-        case TASK_2: result = line_drive_run(0, 0);                   break;
-        case TASK_5: result = line_drive_run(1, 0);                   break;
-        case TASK_6: result = line_drive_run(1, ball_target_cm_x10);  break;
-        case TASK_3: result = task3_run();                            break;
-        default:     result = TASK_RESULT_FAIL;                       break;
+        case TASK_2: result = line_drive_run(0, 0);                            break;
+        case TASK_5: Servo_SetTask5Params(); result = line_drive_run(1, 0);    break;
+        case TASK_6: Servo_SetTask6Params(); result = line_drive_run(1, ball_target_cm_x10); break;
+        case TASK_3: result = task3_run();                                     break;   /* task3_run 内部已切任务3参数 */
+        default:     result = TASK_RESULT_FAIL;                                break;
     }
 
     last_result = result;
