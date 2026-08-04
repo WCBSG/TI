@@ -1,7 +1,7 @@
-/* imu_ctrl.c — IMU660RA 陀螺仪（仅任务 2 停车辅助，其他场景不采样省算力）
+/* imu_ctrl.c — IMU660RA 陀螺仪（任务 2 停车辅助专用）
+ * 完全在 task2 内管理：启动先 init+零点标定（静止）→ 就绪发车 → 跑完 stop
  * 硬件：SPI3 SCK=P87 MOSI=P85 MISO=P86 CS=P34（库默认，与 CLAUDE.md 一致）
- * yaw 轴 = X 轴（模块竖插），方向 IMU_YAW_SIGN 反了改 -1
- * 任务 2 停车辅助：yaw 累计 ≥YAW_LAP_MIN 确认走完一整圈 */
+ * yaw 轴 = X 轴（竖插），方向 IMU_YAW_SIGN 反了改 -1 */
 #include "imu_ctrl.h"
 
 int32 imu_yaw_x100 = 0;      /* 0.01°，yaw 累计角度 */
@@ -12,7 +12,7 @@ static int16 gyro_bias = 0;  /* 零点偏置（消除积分漂移） */
 #define IMU_YAW_RAW()   imu660ra_gyro_x
 #define IMU_YAW_SIGN    (1)
 
-/* 初始化 + 静止零点标定（200 次平均偏置） */
+/* 初始化 + 静止零点标定（200 次平均偏置，约 1s，车静止时调用） */
 void imu_ctrl_start(void)
 {
     uint32 sum = 0;
@@ -40,7 +40,7 @@ void imu_ctrl_tick(uint16 dt_ms)
     imu_yaw_x100 += dps_x100 * (int32)dt_ms / 1000;   /* θ_x100 += w_x100 * dt_ms/1000 */
 }
 
-void imu_ctrl_stop(void)
+void imu_ctrl_stop(void)   /* 跑完 deinit：停止采样 + 清零 */
 {
     imu_active = 0;
     imu_yaw_x100 = 0;

@@ -11,12 +11,12 @@
 #include "protocol.h"
 #include "task_sched.h"
 #include "servo.h"
-#include "imu_ctrl.h"
 
 void main(void)
 {
     clock_init(SYSTEM_CLOCK_96M);
     debug_init();
+    pwm_init(PWMF_CH2_PA3, 2000, 10000);   /* 补光灯：PA3 常亮，给 OpenART 摄像头补光（舵机项目合并） */
     WcTFT_Init();
 
     IRPHOTO_Init();
@@ -57,10 +57,6 @@ void main(void)
                     if (Menu_IsTop(&page_main)) Menu_Push(&page_launch);   /* 主菜单 → Launch */
                     else                        Menu_Cancel();             /* 子页 → 回上层 */
                 }
-
-                /* Launch 页初始化陀螺仪（任务 2 停车辅助），其他页停止省算力 */
-                if (Menu_IsTop(&page_launch)) { if (!imu_active) imu_ctrl_start(); }
-                else if (imu_active) imu_ctrl_stop();
 
                 /* 仅 BallCal 页每 100ms 局部刷新值列（BallPx 实时球位），其他页不刷新 */
                 if (++refresh_cd >= 10)

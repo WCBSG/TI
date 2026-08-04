@@ -7,7 +7,7 @@
 #include "task_sched.h"
 #include "line_ctrl.h"
 #include "servo.h"
-#include "imu_ctrl.h"   /* 任务 2 停车辅助：yaw 确认走完一圈 */
+#include "imu_ctrl.h"   /* 任务 2 停车辅助（task2 内管理：启动标定→采样→deinit） */
 #include "protocol.h"   /* proto_ball_x / proto_ball_valid（任务3 稳定判定） */
 #include "IRPHOTO.h"
 #include "Motor.h"
@@ -55,7 +55,7 @@ static int line_drive_run(uint8 enable_ball, int16 ball_target)
     motor1_control(0);
     motor2_control(0);
     if (enable_ball) { Servo_Enable(); ball_set_cm(ball_target); }
-    else Servo_Control_Init();   /* 任务 2：失能 + 回中 + 关 UART3 接收 */
+    else { Servo_Control_Init(); imu_ctrl_start(); }   /* 任务 2：关舵机省算力 + 初始化陀螺仪（静止标定，就绪再发车） */
 
     WcTFT_Clear(RGB565_BLACK);
     WcTFT_SetColor(RGB565_WHITE, RGB565_BLACK);
@@ -82,8 +82,7 @@ static int line_drive_run(uint8 enable_ball, int16 ball_target)
             }
         }
 
-        /* 停车线检测（任务 2/5/6 共用）：起步忽略 1s → 连续 3 帧确认
-         * 任务 2 需 yaw 累计 ≥300°（走完一圈，防弯道误停）；任务 5/6 纯红外（陀螺仪已停） */
+        /* 停车线检测（任务 2/5/6 共用）：起步忽略 1s → 连续 3 帧确认 */
         is_st = line_is_stop(s);
         EA = 0; elapsed_ms = (pit_tick - start_tick) * 5; EA = 1;
 
@@ -92,6 +91,7 @@ static int line_drive_run(uint8 enable_ball, int16 ball_target)
         {
             if (++stop_cd >= 3)
             {
+                if (elapsed_ms > line_timeout_ms) { result = TASK_RESULT_TIMEOUT; break; }   /* 超时停车判 TIMEOUT */
                 result = TASK_RESULT_OK;
                 if (enable_ball)
                 {
@@ -115,11 +115,11 @@ static int line_drive_run(uint8 enable_ball, int16 ball_target)
         }
         else stop_cd = 0;
 
+        if (stop_done) break;   /* 停车确认后立即退出，不再打巡线一拍（防停前窜动） */
+
         /* 巡线（球稳由 5ms 中断驱动，主循环不调 tick） */
         err = calc_error(s);
         line_ctrl_set(err, base_speed);
-
-        if (stop_done) break;
 
         EA = 0; elapsed_ms = (pit_tick - start_tick) * 5; EA = 1;
 
@@ -139,6 +139,7 @@ static int line_drive_run(uint8 enable_ball, int16 ball_target)
     motor1_control(0);
     motor2_control(0);
     if (enable_ball) Servo_Control_Init();   /* 舵机回中 + 复位 + 禁用 */
+    else imu_ctrl_stop();                    /* 任务 2 跑完 deinit 陀螺仪 */
 
     EA = 0; elapsed_ms = (pit_tick - start_tick) * 5; EA = 1;
     last_elapsed_ms = elapsed_ms;
@@ -271,8 +272,6 @@ void task_sched_run(void)
 
     if (current_task == TASK_2) { line_ctrl_apply_t2(); base_speed = base_speed_t2; }
     else { line_ctrl_apply_other(); base_speed = base_speed_ot; }
-
-    if (current_task != TASK_2) imu_ctrl_stop();   /* 非任务 2 停陀螺仪省算力 */
 
     switch (current_task)
     {
