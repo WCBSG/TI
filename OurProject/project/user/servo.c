@@ -41,6 +41,12 @@ void Servo_SetDefaultParams(void)
     cur_kp = SERVO_KP; cur_ki = SERVO_KI; cur_kd = SERVO_KD; cur_kf = SERVO_KF; cur_kv = SERVO_KV;
 }
 
+/* 球目标 cm(0.1cm) → 像素并设 g_servo_target（Launch 页预览 / 任务6 用） */
+void Servo_SetBallTargetCm(int16 cm_x10)
+{
+    g_servo_target = (int16)(pixel_zero + ((int32)cm_x10 * px_per_cm) / 10);
+}
+
 void Servo_SetTask3Params(void)
 {
     cur_kp = SERVO_T3_KP; cur_ki = SERVO_T3_KI; cur_kd = SERVO_T3_KD; cur_kf = SERVO_T3_KF; cur_kv = SERVO_T3_KV;

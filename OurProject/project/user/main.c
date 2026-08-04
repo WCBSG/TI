@@ -58,6 +58,10 @@ void main(void)
                     else                        Menu_Cancel();             /* 子页 → 回上层 */
                 }
 
+                /* Launch 页：Ball Tgt 实时预览（编辑后球马上滚到目标位置），离开回 O */
+                if (Menu_IsTop(&page_launch)) Servo_SetBallTargetCm(ball_target_cm_x10);
+                else if (g_servo_target != pixel_zero) g_servo_target = pixel_zero;
+
                 /* 仅 BallCal 页每 100ms 局部刷新值列（BallPx 实时球位），其他页不刷新 */
                 if (++refresh_cd >= 10)
                 {

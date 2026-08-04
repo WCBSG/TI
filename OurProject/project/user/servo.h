@@ -89,6 +89,7 @@ void   Servo_SetDefaultParams(void);           /* 默认参数（归中） */
 void   Servo_SetTask3Params(void);             /* 任务 3 特调参数 */
 void   Servo_SetTask5Params(void);             /* 任务 5 特调参数 */
 void   Servo_SetTask6Params(void);             /* 任务 6 特调参数 */
+void   Servo_SetBallTargetCm(int16 cm_x10);    /* 球目标 cm(0.1)→像素（Launch 预览/任务6） */
 uint16 Servo_Control_Update(int16 cx);         /* 球像素 X → PID+前馈 → 舵机，返回 duty */
 void   Servo_Timer_Init(void);                 /* 初始化 5ms PIT，中断里执行 PID 追踪 */
 void   Servo_Timer_Callback(void);             /* 5ms 中断回调（pit 自动调用） */
