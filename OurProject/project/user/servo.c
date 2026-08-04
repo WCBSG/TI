@@ -6,7 +6,7 @@
 #include "protocol.h"   /* 读取 proto_ball_x / proto_ball_valid */
 
 /* ── 标定参数（本车实测，菜单可调） ── */
-int16 servo_center_duty = 4400;   /* 摆杆水平 */
+int16 servo_center_duty = 4740;   /* 摆杆水平 */
 int16 pixel_zero        = 175;    /* O 点像素 X */
 int16 px_per_cm         = 11;     /* 每 cm 像素数 */
 int16 ball_target_cm_x10 = 0;
