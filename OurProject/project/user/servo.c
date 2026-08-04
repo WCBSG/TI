@@ -6,7 +6,7 @@
 #include "protocol.h"   /* 读取 proto_ball_x / proto_ball_valid */
 
 /* ── 标定参数（本车实测，菜单可调） ── */
-int16 servo_center_duty = 4260;   /* 摆杆水平 */
+int16 servo_center_duty = 4400;   /* 摆杆水平 */
 int16 pixel_zero        = 175;    /* O 点像素 X */
 int16 px_per_cm         = 11;     /* 每 cm 像素数 */
 int16 ball_target_cm_x10 = 0;
@@ -34,15 +34,16 @@ static float  cur_kp = SERVO_KP;
 static float  cur_ki = SERVO_KI;
 static float  cur_kd = SERVO_KD;
 static float  cur_kf = SERVO_KF;
+static float  cur_kv = SERVO_KV;
 
 void Servo_SetDefaultParams(void)
 {
-    cur_kp = SERVO_KP; cur_ki = SERVO_KI; cur_kd = SERVO_KD; cur_kf = SERVO_KF;
+    cur_kp = SERVO_KP; cur_ki = SERVO_KI; cur_kd = SERVO_KD; cur_kf = SERVO_KF; cur_kv = SERVO_KV;
 }
 
 void Servo_SetTask3Params(void)
 {
-    cur_kp = SERVO_T3_KP; cur_ki = SERVO_T3_KI; cur_kd = SERVO_T3_KD; cur_kf = SERVO_T3_KF;
+    cur_kp = SERVO_T3_KP; cur_ki = SERVO_T3_KI; cur_kd = SERVO_T3_KD; cur_kf = SERVO_T3_KF; cur_kv = SERVO_T3_KV;
 }
 
 /* ── 舵机 PWM 初始化 ── */
@@ -139,7 +140,7 @@ uint16 Servo_Control_Update(int16 cx)
     {
         float speed = (float)(cx - last_cx);
         filtered_speed = (filtered_speed * 15.0f + speed) / 16.0f;
-        control += SERVO_KV * filtered_speed;
+        control += cur_kv * filtered_speed;
     }
     last_cx = cx;
 

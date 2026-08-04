@@ -29,8 +29,8 @@ extern int16 ball_target_cm_x10; /* 任务6 球目标位置（0.1cm，相对 O�
  * KF: 前馈(误差>8 推第一把) | I_MAX: 积分限幅
  * ════════════════════════════════════════════════════════════ */
 #define SERVO_KP        10.0f
-#define SERVO_KI        0.1f    /* 积分项：消除稳态误差（纯视觉追踪必须开启） */
-#define SERVO_KD        600.0f
+#define SERVO_KI        0.00f    /* 积分项：消除稳态误差（纯视觉追踪必须开启） */
+#define SERVO_KD        300.0f
 #define SERVO_KF        20.0f
 #define SERVO_I_MAX     500.0f
 #define SERVO_I_DEADZONE 50      /* 积分累积死区：|error|<该值才积分 */
@@ -38,7 +38,8 @@ extern int16 ball_target_cm_x10; /* 任务6 球目标位置（0.1cm，相对 O�
 
 /* ── 速度前馈（Zui1 借鉴，行驶中稳球关键） ──
  * 球速 = 5ms 像素位移（低通 α=1/16）× Kv → 球开始滚就反向推舵机，抵消车运动带动球
- * 换算：Zui1 用 20ms 位移×Kv100 ≈ 本工程 5ms 位移×Kv400 */
+ * 换算：Zui1 用 20ms 位移×Kv100 ≈ 本工程 5ms 位移×Kv400
+ * 任务 3 静止用 SERVO_T3_KV=0（不需要） */
 #define SERVO_KV        400.0f
 
 /* ── 任务 3 特调参数（与归中/任务5/6 分开） ──
@@ -48,6 +49,7 @@ extern int16 ball_target_cm_x10; /* 任务6 球目标位置（0.1cm，相对 O�
 #define SERVO_T3_KI  0.0f
 #define SERVO_T3_KD  1100.0f
 #define SERVO_T3_KF  5.0f
+#define SERVO_T3_KV  0.0f     /* 任务3 静止不用速度前馈 */
 
 /* ════════════════════════════════════════════════════════════
  * 5ms 周期控制（PIT 中断驱动舵机追踪）

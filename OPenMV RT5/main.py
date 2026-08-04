@@ -2,7 +2,7 @@
 import sensor, time, network, socket, errno
 
 SSID, KEY, PORT = "OMVRT-WC", "12345678", 8000
-W, H, Q, B = 320, 240, 45, "frame"
+W, H, Q, B = 640, 480, 45, "frame"
 
 PAGE = ('<html><head><meta charset="utf-8"><title>OMV-RT5</title>'
         '<style>body{background:#000;margin:0;overflow:hidden}'
@@ -36,9 +36,9 @@ def handle_client(c):
   except: pass
 
   parts = buf.split(b"\r\n", 1)[0].split(b" ", 2)
-  p = parts[1].decode("utf-8", "ignore") if len(parts) >= 2 else ""
+  p = parts[1] if len(parts) >= 2 else b""    # 路径 bytes 比较，避免 decode 抛 UnicodeError
 
-  if p == "/":
+  if p == b"/":
     try:
       body = PAGE.encode()
       c.sendall(("HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\n"
@@ -47,7 +47,7 @@ def handle_client(c):
       print("[err] page:", e)
     try: c.close()
     except: pass
-  elif p == "/stream":
+  elif p == b"/stream":
     try:
       c.sendall(("HTTP/1.1 200 OK\r\nCache-Control: no-store\r\n"
                  "Content-Type: multipart/x-mixed-replace; boundary=%s\r\n\r\n" % B).encode())
@@ -102,7 +102,7 @@ def main():
     time.sleep_ms(100)
   if not ip or ip == "0.0.0.0": print("[ERR] wifi"); return
 
-  sensor.reset(); sensor.set_pixformat(sensor.RGB565); sensor.set_framesize(sensor.QVGA)
+  sensor.reset(); sensor.set_pixformat(sensor.RGB565); sensor.set_framesize(sensor.VGA)   # 640x480（帧率低，WiFi 图传可能卡）
   sensor.skip_frames(time=2000)
 
   srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -123,7 +123,10 @@ def main():
       continue
 
     if any(st["pending"] is None for st in clients.values()):
-      jpg = sensor.snapshot().compress(quality=Q)
+      try:
+        jpg = sensor.snapshot().compress(quality=Q)
+      except Exception:
+        continue                       # 单帧失败跳过本帧，图传不崩
       pump(jpg)
     else:
       pump(None)                       # 都有半帧没发完 → 只 flush，不抓新帧
