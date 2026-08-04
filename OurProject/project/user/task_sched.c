@@ -28,6 +28,7 @@ static uint32 last_elapsed_ms = 0;
 #define START_SLOW_T4_MS  1500   /* 任务4 缓启动时长（8s 限时，起步快些） */
 #define START_SLOW_T5_MS  2000   /* 任务5 缓启动时长 */
 #define START_SLOW_T6_MS  2000   /* 任务6 缓启动时长 */
+#define RUN_BEFORE_STOP_MS 1000  /* 任务5/6 缓停前继续全速跑时长（让车到 A 点） */
 
 /* 球目标 cm(0.1cm) → 像素：最终 = pixel_zero + px偏移(仅任务6) + cm*px_per_cm/10 */
 static void ball_set_cm(int16 cm_x10)
@@ -104,8 +105,19 @@ static int line_drive_run(uint8 enable_ball, int16 ball_target)
                 result = TASK_RESULT_OK;
                 if (enable_ball)
                 {
-                    /* 任务5/6 缓停：球稳保持（servo 中断），电机线性减速 + 继续巡线（跟线不偏） */
+                    /* 缓停前先继续全速跑 1s（让车到 A 点位置），再缓停减速 */
                     uint32 t0, dt;
+                    EA = 0; t0 = pit_tick; EA = 1;
+                    while (1)
+                    {
+                        EA = 0; dt = (pit_tick - t0) * 5; EA = 1;
+                        if (dt >= RUN_BEFORE_STOP_MS) break;
+                        IRPHOTO_Read(s);
+                        line_ctrl_set(calc_error(s), base_speed);
+                        system_delay_ms(10);
+                    }
+
+                    /* 任务5/6 缓停：球稳保持（servo 中断），电机线性减速 + 继续巡线（跟线不偏） */
                     EA = 0; t0 = pit_tick; EA = 1;
                     while (1)
                     {
